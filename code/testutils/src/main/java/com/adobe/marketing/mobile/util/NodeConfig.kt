@@ -271,10 +271,8 @@ class NodeConfig {
      *
      * @param multiPathConfig Configuration for multiple paths including common option key, config, and scope.
      * @param isLegacyMode Flag indicating if the operation should consider legacy behaviors.
-     * @param file Source file name as a compile-time constant, typically used for debugging or logging.
-     * @param line Line number in the source file, typically used for debugging or logging.
      */
-    fun createOrUpdateNode(multiPathConfig: MultiPathConfig, isLegacyMode: Boolean, file: String, line: UInt) {
+    fun createOrUpdateNode(multiPathConfig: MultiPathConfig, isLegacyMode: Boolean) {
         val pathConfigs = multiPathConfig.paths.map {
             PathConfig(
                 path = it,
@@ -284,7 +282,7 @@ class NodeConfig {
             )
         }
         for (pathConfig in pathConfigs) {
-            createOrUpdateNode(pathConfig, isLegacyMode, file, line)
+            createOrUpdateNode(pathConfig, isLegacyMode)
         }
     }
 
@@ -294,11 +292,9 @@ class NodeConfig {
      *
      * @param pathConfig Configuration for a single path including option key, config, and scope.
      * @param isLegacyMode Flag indicating if the operation should consider legacy behaviors.
-     * @param file Source file name as a compile-time constant, typically used for debugging or logging.
-     * @param line Line number in the source file, typically used for debugging or logging.
      */
-    fun createOrUpdateNode(pathConfig: PathConfig, isLegacyMode: Boolean, file: String, line: UInt) {
-        val pathComponents = getProcessedPathComponents(pathConfig.path, file, line)
+    fun createOrUpdateNode(pathConfig: PathConfig, isLegacyMode: Boolean) {
+        val pathComponents = getProcessedPathComponents(pathConfig.path)
         updateTree(nodes = mutableListOf(this), pathConfig = pathConfig, pathComponents = pathComponents, isLegacyMode = isLegacyMode)
     }
 
@@ -356,4 +352,145 @@ class NodeConfig {
         }
         updateTree(nextNodes, pathConfig, pathComponents, isLegacyMode)
     }
+
+    /**
+     * Processes the given path string into individual path components with detailed properties.
+     * This function analyzes a path string, typically representing a navigation path in a structure,
+     * and breaks it down into components that specify details about how each segment of the path should be treated,
+     * such as whether it's an array, a wildcard, or requires any specific order handling.
+     *
+     * @param pathString The path string to be processed.
+     * @return A list of [PathComponent] reflecting the structured breakdown of the path string.
+     */
+    private fun getProcessedPathComponents(pathString: String?): List<PathComponent> {
+        val objectPathComponents = getObjectPathComponents(pathString)
+        val pathComponents = mutableListOf<PathComponent>()
+        for (objectPathComponent in objectPathComponents) {
+            val key = objectPathComponent.replace("\\.", ".")
+            // Extract the string part and array component part(s) from the key string
+            val components = getArrayPathComponents(key)
+            // Process string segment
+            components.stringComponent?.let { stringComponent ->
+                val isWildcard = stringComponent == "*"
+                if (isWildcard) {
+                    pathComponents.add(
+                        PathComponent(
+                            name = stringComponent,
+                            isAnyOrder = false,
+                            isArray = false,
+                            isWildcard = isWildcard
+                        )
+                    )
+                } else {
+                    pathComponents.add(
+                        PathComponent(
+                            name = stringComponent.replace("\\*", "*"),
+                            isAnyOrder = false,
+                            isArray = false,
+                            isWildcard = isWildcard
+                        )
+                    )
+                }
+            }
+
+            // Process array segment(s)
+            for (arrayComponent in components.arrayComponents) {
+                if (arrayComponent == "[*]") {
+                    pathComponents.add(
+                        PathComponent(
+                            name = arrayComponent,
+                            isAnyOrder = true,
+                            isArray = true,
+                            isWildcard = true
+                        )
+                    )
+                } else {
+                    val indexResult = getArrayIndexAndAnyOrder(arrayComponent)
+                    indexResult?.let {
+                        pathComponents.add(
+                            PathComponent(
+                                name = it.index.toString(),
+                                isAnyOrder = it.isAnyOrder,
+                                isArray = true,
+                                isWildcard = false
+                            )
+                        )
+                    }
+                        ?: return pathComponents // Test failure emitted by extractIndexAndWildcardStatus
+                }
+            }
+        }
+        return pathComponents
+    }
+
+    /**
+     * Finds or creates a child node within the given node, handling the assignment to the proper descendants' location.
+     * This method ensures that if the child node already exists, it is returned; otherwise, a new child node is created.
+     * If a wildcard child node is needed, it either returns an existing wildcard child or creates a new one and assigns it.
+     *
+     * @param node The parent node in which to find or create a child.
+     * @param name The name of the child node to find or create.
+     * @param isWildcard Indicates whether the child node to be created should be treated as a wildcard node.
+     * @return The found or newly created child node.
+     */
+    private fun findOrCreateChild(node: NodeConfig, name: String, isWildcard: Boolean): NodeConfig {
+        return if (isWildcard) {
+            node.wildcardChildren ?: run {
+                // Apply subtreeOptions to the child
+                val newChild = NodeConfig(name = name, subtreeOptions = node.subtreeOptions)
+                node.wildcardChildren = newChild
+                newChild
+            }
+        } else {
+            node.children.firstOrNull { it.name == name } ?: run {
+                // If a wildcard child already exists, use that as the base
+                node.wildcardChildren?.deepCopy()?.apply {
+                    this.name = name
+                    node.children.add(this)
+                } ?: run {
+                    // Apply subtreeOptions to the child
+                    val newChild = NodeConfig(name = name, subtreeOptions = node.subtreeOptions)
+                    node.children.add(newChild)
+                    newChild
+                }
+            }
+        }
+    }
+
+    /**
+     * Propagates a subtree option from the given path configuration to the specified node and all its descendants.
+     * This function recursively ensures that the specified option is applied consistently throughout the subtree
+     * originating from the given node.
+     *
+     * @param node The node from which to start propagating the subtree option.
+     * @param pathConfig The configuration containing the option to propagate.
+     */
+    private fun propagateSubtreeOption(node: NodeConfig, pathConfig: PathConfig) {
+        val key = pathConfig.optionKey
+        node.subtreeOptions[key] = pathConfig.config
+        // TODO: shouldn't be possible for subtree options to not exist - check if config false is necessary here
+        node.wildcardChildren?.subtreeOptions?.set(key, node.subtreeOptions[key] ?: Config(isActive = false))
+        for (child in node.children) {
+            // Only propagate the subtree value for the current option key,
+            // otherwise, previously set subtree values will be reset to the default values
+            child.subtreeOptions[key] = node.subtreeOptions[key] ?: Config(isActive = false)
+            propagateSubtreeOption(child, pathConfig)
+        }
+    }
+
+    /**
+     * Creates a new NodeConfig instance representing the final node configuration.
+     * This function is used to create a snapshot of the current node configuration,
+     * ensuring that modifications to the new instance do not affect the original node's state,
+     * particularly useful in recursive or multi-threaded environments.
+     *
+     * @return A new NodeConfig instance with the current subtree options.
+     */
+    fun asFinalNode(): NodeConfig {
+        // Should not modify self since other recursive function calls may still depend on children.
+        // Instead, return a new instance with the proper values set
+        return NodeConfig(name = null, options = mutableMapOf(), subtreeOptions = subtreeOptions)
+    }
+
+
 }
