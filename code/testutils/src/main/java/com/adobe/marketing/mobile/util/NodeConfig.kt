@@ -1,5 +1,7 @@
 package com.adobe.marketing.mobile.util
 
+import java.util.Objects
+
 /**
  * An interface that defines a multi-path configuration.
  *
@@ -89,9 +91,11 @@ class NodeConfig {
      */
     data class Config(var isActive: Boolean)
 
-    enum class NodeOption {
-        option(OptionKey, Config, Scope)
-    }
+    data class NodeOption(
+        val optionKey: OptionKey,
+        val config: Config,
+        val scope: Scope
+    )
 
     private data class PathComponent(
         var name: String?,
@@ -140,6 +144,51 @@ class NodeConfig {
     var primitiveExactMatch: Config
         get() = options[OptionKey.primitiveExactMatch] ?: subtreeOptions[OptionKey.primitiveExactMatch]!!
         set(value) { options[OptionKey.primitiveExactMatch] = value }
+
+    companion object {
+        /**
+         * Resolves a given node's option using the following precedence:
+         * 1. Single node option
+         *    a. Current node
+         *    b. Wildcard child
+         *    c. Parent node
+         *
+         * 2. Subtree option
+         *    a. Current node
+         *    b. Wildcard child
+         *    c. Parent node
+         *
+         * This is to handle the case where an array has a node-specific option like wildcard match which
+         * should apply to all direct children (that is, only 1 level down), and one of the children has a
+         * node specific option disabling wildcard match.
+         */
+        fun resolveOption(option: NodeConfig.OptionKey, node: NodeConfig?, parentNode: NodeConfig): NodeConfig.Config {
+            // Single node options
+            // Current node
+            node?.options?.get(option)?.let {
+                return it
+            }
+            // Wildcard child
+            node?.wildcardChildren?.options?.get(option)?.let {
+                return it
+            }
+            // Check array's node-specific option
+            parentNode.options[option]?.let {
+                return it
+            }
+            // Check node's subtree option, falling back to array node's default subtree config
+            return when (option) {
+                NodeConfig.OptionKey.anyOrderMatch ->
+                    node?.anyOrderMatch ?: node?.wildcardChildren?.anyOrderMatch ?: parentNode.anyOrderMatch
+                NodeConfig.OptionKey.collectionEqualCount ->
+                    node?.collectionEqualCount ?: node?.wildcardChildren?.collectionEqualCount ?: parentNode.collectionEqualCount
+                NodeConfig.OptionKey.keyMustBeAbsent ->
+                    node?.keyMustBeAbsent ?: node?.wildcardChildren?.keyMustBeAbsent ?: parentNode.keyMustBeAbsent
+                NodeConfig.OptionKey.primitiveExactMatch ->
+                    node?.primitiveExactMatch ?: node?.wildcardChildren?.primitiveExactMatch ?: parentNode.primitiveExactMatch
+            }
+        }
+    }
 
     /**
      * Creates a new node with the given values.
@@ -208,59 +257,13 @@ class NodeConfig {
      * Gets the next node for the given name, falling back to wildcard or asFinalNode if not found.
      */
     fun getNextNode(forName: String?): NodeConfig =
-        getChild(named = forName) ?: wildcardChildren ?: asFinalNode()
+        getChild(forName) ?: wildcardChildren ?: asFinalNode()
 
     /**
      * Gets the next node for the given index, falling back to wildcard or asFinalNode if not found.
      */
     fun getNextNode(forIndex: Int?): NodeConfig =
-        getChild(indexed = forIndex) ?: wildcardChildren ?: asFinalNode()
-
-    companion object {
-
-        /**
-         * Resolves a given node's option using the following precedence:
-         * 1. Single node option
-         *    a. Current node
-         *    b. Wildcard child
-         *    c. Parent node
-         *
-         * 2. Subtree option
-         *    a. Current node
-         *    b. Wildcard child
-         *    c. Parent node
-         *
-         * This is to handle the case where an array has a node-specific option like wildcard match which
-         * should apply to all direct children (that is, only 1 level down), and one of the children has a
-         * node specific option disabling wildcard match.
-         */
-        fun resolveOption(option: NodeConfig.OptionKey, node: NodeConfig?, parentNode: NodeConfig): NodeConfig.Config {
-            // Single node options
-            // Current node
-            node?.options?.get(option)?.let {
-                return it
-            }
-            // Wildcard child
-            node?.wildcardChildren?.options?.get(option)?.let {
-                return it
-            }
-            // Check array's node-specific option
-            parentNode.options[option]?.let {
-                return it
-            }
-            // Check node's subtree option, falling back to array node's default subtree config
-            return when (option) {
-                NodeConfig.OptionKey.anyOrderMatch ->
-                    node?.anyOrderMatch ?: node?.wildcardChildren?.anyOrderMatch ?: parentNode.anyOrderMatch
-                NodeConfig.OptionKey.collectionEqualCount ->
-                    node?.collectionEqualCount ?: node?.wildcardChildren?.collectionEqualCount ?: parentNode.collectionEqualCount
-                NodeConfig.OptionKey.keyMustBeAbsent ->
-                    node?.keyMustBeAbsent ?: node?.wildcardChildren?.keyMustBeAbsent ?: parentNode.keyMustBeAbsent
-                NodeConfig.OptionKey.primitiveExactMatch ->
-                    node?.primitiveExactMatch ?: node?.wildcardChildren?.primitiveExactMatch ?: parentNode.primitiveExactMatch
-            }
-        }
-    }
+        getChild(forIndex) ?: wildcardChildren ?: asFinalNode()
 
     /**
      * Creates or updates nodes based on multiple path configurations.
@@ -296,7 +299,7 @@ class NodeConfig {
      */
     fun createOrUpdateNode(pathConfig: PathConfig, isLegacyMode: Boolean, file: String, line: UInt) {
         val pathComponents = getProcessedPathComponents(pathConfig.path, file, line)
-        updateTree(nodes = listOf(this), pathConfig = pathConfig, pathComponents = pathComponents, isLegacyMode = isLegacyMode)
+        updateTree(nodes = mutableListOf(this), pathConfig = pathConfig, pathComponents = pathComponents, isLegacyMode = isLegacyMode)
     }
 
     /**
