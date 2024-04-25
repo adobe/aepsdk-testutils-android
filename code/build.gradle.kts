@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright 2023 Adobe. All rights reserved.
  * This file is licensed to you under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License. You may obtain a copy
@@ -10,20 +10,18 @@
  * governing permissions and limitations under the License.
  */
 
-pluginManagement {
-    repositories {
-        google()
-        mavenCentral()
-        gradlePluginPortal()
-    }
-}
-dependencyResolutionManagement {
-    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
-    repositories {
-        google()
-        mavenCentral()
-    }
-}
 
-rootProject.name = "TestUtils"
-include ':testutils'
+apply(plugin = "aep-license")
+
+buildscript {
+    repositories {
+        gradlePluginPortal()
+        google()
+        mavenCentral()
+        maven { url = uri("https://jitpack.io") }
+        mavenLocal()
+    }
+    dependencies {
+        classpath("com.github.adobe:aepsdk-commons:gp-3.0.0")
+    }
+}
