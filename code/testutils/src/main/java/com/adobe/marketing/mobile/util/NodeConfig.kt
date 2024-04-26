@@ -297,11 +297,11 @@ class NodeConfig {
     /**
      * A string representing the name of the node. `null` refers to the top level object
      */
-    var name: String? = null
+    private var name: String? = null
     /**
      * Options set specifically for this node. Specific `OptionKey`s may or may not be present - it is optional.
      */
-    var options: MutableMap<OptionKey, Config> = mutableMapOf()
+    private var options: MutableMap<OptionKey, Config> = mutableMapOf()
     /**
      * Options set for the subtree, used as the default option when no node-specific options are set. All `OptionKey`s MUST be
      * present.
@@ -311,7 +311,9 @@ class NodeConfig {
     /**
      * The set of child nodes.
      */
-    private var children: MutableSet<NodeConfig> = mutableSetOf()
+    private var _children: MutableSet<NodeConfig> = mutableSetOf()
+    val children: MutableSet<NodeConfig>
+        get() = _children
     /**
      * The node configuration for wildcard children
      */
@@ -359,7 +361,7 @@ class NodeConfig {
         this.name = name
         this.options = options
         this.subtreeOptions = validatedSubtreeOptions
-        this.children = children
+        this._children = children
         this.wildcardChildren = wildcardChildren
     }
 
@@ -430,7 +432,7 @@ class NodeConfig {
             name = name,
             options = HashMap(options),
             subtreeOptions = HashMap(subtreeOptions),
-            children = children.map { it.deepCopy() }.toMutableSet(),
+            children = _children.map { it.deepCopy() }.toMutableSet(),
             wildcardChildren = wildcardChildren?.deepCopy()
         )
     }
@@ -438,7 +440,7 @@ class NodeConfig {
     /**
      * Gets a child node with the specified name.
      */
-    fun getChild(name: String?): NodeConfig? = children.firstOrNull { it.name == name }
+    fun getChild(name: String?): NodeConfig? = _children.firstOrNull { it.name == name }
 
     /**
      * Gets a child node at the specified index if it represents as a string.
@@ -446,7 +448,7 @@ class NodeConfig {
     fun getChild(index: Int?): NodeConfig? {
         return index?.let {
             val indexString = it.toString()
-            children.firstOrNull { child -> child.name == indexString }
+            _children.firstOrNull { child -> child.name == indexString }
         }
     }
 
@@ -546,7 +548,7 @@ class NodeConfig {
                 nextNodes.add(child)
 
                 if (pathComponent.isWildcard) {
-                    nextNodes.addAll(node.children)
+                    nextNodes.addAll(node._children)
                 }
                 if (isLegacyMode && pathComponent.isAnyOrder) {
                     // This is the legacy AnyOrder that should apply to all children
@@ -653,15 +655,15 @@ class NodeConfig {
                 newChild
             }
         } else {
-            node.children.firstOrNull { it.name == name } ?: run {
+            node._children.firstOrNull { it.name == name } ?: run {
                 // If a wildcard child already exists, use that as the base
                 node.wildcardChildren?.deepCopy()?.apply {
                     this.name = name
-                    node.children.add(this)
+                    node._children.add(this)
                 } ?: run {
                     // Apply subtreeOptions to the child
                     val newChild = NodeConfig(name = name, subtreeOptions = node.subtreeOptions)
-                    node.children.add(newChild)
+                    node._children.add(newChild)
                     newChild
                 }
             }
@@ -681,7 +683,7 @@ class NodeConfig {
         node.subtreeOptions[key] = pathConfig.config
         // Should be impossible for subtree map to be missing keys; fix constructor if this ever results in NPE
         node.wildcardChildren?.subtreeOptions?.set(key, node.subtreeOptions[key]!!)
-        for (child in node.children) {
+        for (child in node._children) {
             // Only propagate the subtree value for the current option key,
             // otherwise, previously set subtree values will be reset to the default values
             child.subtreeOptions[key] = node.subtreeOptions[key]!!
