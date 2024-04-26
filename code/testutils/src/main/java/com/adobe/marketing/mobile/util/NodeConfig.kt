@@ -68,9 +68,9 @@ data class PathConfig(
  */
 data class AnyOrderMatch(
     override val paths: List<String?> = listOf(null),
-    override val optionKey: NodeConfig.OptionKey = NodeConfig.OptionKey.anyOrderMatch,
+    override val optionKey: NodeConfig.OptionKey = NodeConfig.OptionKey.AnyOrderMatch,
     override val config: NodeConfig.Config = NodeConfig.Config(isActive = true),
-    override val scope: NodeConfig.Scope = NodeConfig.Scope.singleNode
+    override val scope: NodeConfig.Scope = NodeConfig.Scope.SingleNode
 ) : MultiPathConfig {
 
     /**
@@ -80,7 +80,8 @@ data class AnyOrderMatch(
      * @param isActive Boolean value indicating whether the configuration is active.
      * @param scope The scope of configuration, defaulting to single node.
      */
-    constructor(paths: List<String?> = listOf(null), isActive: Boolean = true, scope: NodeConfig.Scope = NodeConfig.Scope.singleNode)
+    @JvmOverloads
+    constructor(paths: List<String?> = listOf(null), isActive: Boolean = true, scope: NodeConfig.Scope = NodeConfig.Scope.SingleNode)
             : this(paths, config = NodeConfig.Config(isActive = isActive), scope = scope)
 
     /**
@@ -90,7 +91,8 @@ data class AnyOrderMatch(
      * @param isActive Boolean value indicating whether the configuration is active.
      * @param scope The scope of configuration, defaulting to single node.
      */
-    constructor(vararg paths: String?, isActive: Boolean = true, scope: NodeConfig.Scope = NodeConfig.Scope.singleNode)
+    @JvmOverloads
+    constructor(vararg paths: String?, isActive: Boolean = true, scope: NodeConfig.Scope = NodeConfig.Scope.SingleNode)
             : this(
                 if (paths.isEmpty()) listOf(null) else paths.toList(),
                 isActive = isActive,
@@ -103,9 +105,9 @@ data class AnyOrderMatch(
  */
 data class CollectionEqualCount(
     override val paths: List<String?> = listOf(null),
-    override val optionKey: NodeConfig.OptionKey = NodeConfig.OptionKey.collectionEqualCount,
+    override val optionKey: NodeConfig.OptionKey = NodeConfig.OptionKey.CollectionEqualCount,
     override val config: NodeConfig.Config = NodeConfig.Config(isActive = true),
-    override val scope: NodeConfig.Scope = NodeConfig.Scope.singleNode
+    override val scope: NodeConfig.Scope = NodeConfig.Scope.SingleNode
 ) : MultiPathConfig {
 
     /**
@@ -115,7 +117,8 @@ data class CollectionEqualCount(
      * @param isActive Boolean value indicating whether the configuration is active.
      * @param scope The scope of configuration, defaulting to single node.
      */
-    constructor(paths: List<String?> = listOf(null), isActive: Boolean = true, scope: NodeConfig.Scope = NodeConfig.Scope.singleNode)
+    @JvmOverloads
+    constructor(paths: List<String?> = listOf(null), isActive: Boolean = true, scope: NodeConfig.Scope = NodeConfig.Scope.SingleNode)
             : this(paths, config = NodeConfig.Config(isActive = isActive), scope = scope)
 
     /**
@@ -125,7 +128,8 @@ data class CollectionEqualCount(
      * @param isActive Specifies whether this configuration is active.
      * @param scope Specifies the scope of the configuration.
      */
-    constructor(vararg paths: String?, isActive: Boolean = true, scope: NodeConfig.Scope = NodeConfig.Scope.singleNode)
+    @JvmOverloads
+    constructor(vararg paths: String?, isActive: Boolean = true, scope: NodeConfig.Scope = NodeConfig.Scope.SingleNode)
             : this(
         if (paths.isEmpty()) listOf(null) else paths.toList(),
         isActive = isActive,
@@ -138,9 +142,9 @@ data class CollectionEqualCount(
  */
 data class KeyMustBeAbsent(
     override val paths: List<String?> = listOf(null),
-    override val optionKey: NodeConfig.OptionKey = NodeConfig.OptionKey.keyMustBeAbsent,
+    override val optionKey: NodeConfig.OptionKey = NodeConfig.OptionKey.KeyMustBeAbsent,
     override val config: NodeConfig.Config = NodeConfig.Config(isActive = true),
-    override val scope: NodeConfig.Scope = NodeConfig.Scope.singleNode
+    override val scope: NodeConfig.Scope = NodeConfig.Scope.SingleNode
 ) : MultiPathConfig {
 
     /**
@@ -150,8 +154,9 @@ data class KeyMustBeAbsent(
      * @param isActive Boolean value indicating whether the configuration is active.
      * @param scope The scope of configuration, defaulting to single node.
      */
-    constructor(paths: List<String?> = listOf(null), isActive: Boolean = true, scope: NodeConfig.Scope = NodeConfig.Scope.singleNode)
-            : this(paths, NodeConfig.OptionKey.keyMustBeAbsent, NodeConfig.Config(isActive = isActive), scope)
+    @JvmOverloads
+    constructor(paths: List<String?> = listOf(null), isActive: Boolean = true, scope: NodeConfig.Scope = NodeConfig.Scope.SingleNode)
+            : this(paths, NodeConfig.OptionKey.KeyMustBeAbsent, NodeConfig.Config(isActive = isActive), scope)
 
     /**
      * Variadic initializer allowing multiple string paths.
@@ -160,7 +165,8 @@ data class KeyMustBeAbsent(
      * @param isActive Specifies whether this configuration is active.
      * @param scope Specifies the scope of the configuration.
      */
-    constructor(vararg paths: String?, isActive: Boolean = true, scope: NodeConfig.Scope = NodeConfig.Scope.singleNode)
+    @JvmOverloads
+    constructor(vararg paths: String?, isActive: Boolean = true, scope: NodeConfig.Scope = NodeConfig.Scope.SingleNode)
             : this(
         if (paths.isEmpty()) listOf(null) else paths.toList(),
         isActive = isActive,
@@ -180,9 +186,9 @@ data class KeyMustBeAbsent(
  */
 data class ValueExactMatch(
     override val paths: List<String?> = listOf(null),
-    override val optionKey: NodeConfig.OptionKey = NodeConfig.OptionKey.primitiveExactMatch,
+    override val optionKey: NodeConfig.OptionKey = NodeConfig.OptionKey.PrimitiveExactMatch,
     override val config: NodeConfig.Config = NodeConfig.Config(isActive = true),
-    override val scope: NodeConfig.Scope = NodeConfig.Scope.singleNode
+    override val scope: NodeConfig.Scope = NodeConfig.Scope.SingleNode
 ) : MultiPathConfig {
 
     /**
@@ -191,7 +197,8 @@ data class ValueExactMatch(
      * @param paths A list of optional path strings, defaults to a list containing null if no paths are provided.
      * @param scope The scope of configuration, typically single node or subtree.
      */
-    constructor(paths: List<String?> = listOf(null), scope: NodeConfig.Scope = NodeConfig.Scope.singleNode)
+    @JvmOverloads
+    constructor(paths: List<String?> = listOf(null), scope: NodeConfig.Scope = NodeConfig.Scope.SingleNode)
             : this(paths, config = NodeConfig.Config(isActive = true), scope = scope)
 
     /**
@@ -201,7 +208,8 @@ data class ValueExactMatch(
      * @param paths Vararg of optional path strings, defaults to a list containing null when empty.
      * @param scope Specifies the scope of the configuration, typically single node or subtree.
      */
-    constructor(vararg paths: String?, scope: NodeConfig.Scope = NodeConfig.Scope.singleNode)
+    @JvmOverloads
+    constructor(vararg paths: String?, scope: NodeConfig.Scope = NodeConfig.Scope.SingleNode)
             : this(
         if (paths.isEmpty()) listOf(null) else paths.toList(),
         scope = scope
@@ -213,9 +221,9 @@ data class ValueExactMatch(
  */
 data class ValueTypeMatch(
     override val paths: List<String?> = listOf(null),
-    override val optionKey: NodeConfig.OptionKey = NodeConfig.OptionKey.primitiveExactMatch,
+    override val optionKey: NodeConfig.OptionKey = NodeConfig.OptionKey.PrimitiveExactMatch,
     override val config: NodeConfig.Config = NodeConfig.Config(isActive = false),
-    override val scope: NodeConfig.Scope = NodeConfig.Scope.singleNode
+    override val scope: NodeConfig.Scope = NodeConfig.Scope.SingleNode
 ) : MultiPathConfig {
 
     /**
@@ -224,7 +232,8 @@ data class ValueTypeMatch(
      * @param paths A list of optional path strings, defaults to a list containing null if no paths are provided.
      * @param scope The scope of configuration, typically single node or subtree.
      */
-    constructor(paths: List<String?> = listOf(null), scope: NodeConfig.Scope = NodeConfig.Scope.singleNode)
+    @JvmOverloads
+    constructor(paths: List<String?> = listOf(null), scope: NodeConfig.Scope = NodeConfig.Scope.SingleNode)
             : this(paths, config = NodeConfig.Config(isActive = false), scope = scope)
 
     /**
@@ -233,7 +242,8 @@ data class ValueTypeMatch(
      * @param paths Vararg of optional path strings, defaults to a list containing null when empty.
      * @param scope Specifies the scope of the configuration, typically single node or subtree.
      */
-    constructor(vararg paths: String?, scope: NodeConfig.Scope = NodeConfig.Scope.singleNode)
+    @JvmOverloads
+    constructor(vararg paths: String?, scope: NodeConfig.Scope = NodeConfig.Scope.SingleNode)
             : this(
         if (paths.isEmpty()) listOf(null) else paths.toList(),
         scope = scope
@@ -252,18 +262,18 @@ class NodeConfig {
      * Represents the scope of the configuration; that is, to which nodes the configuration applies.
      */
     enum class Scope(val value: String) {
-        singleNode("SingleNode"),
-        subtree("Subtree")
+        SingleNode("SingleNode"),
+        Subtree("Subtree")
     }
 
     /**
      * Defines the types of configuration options available for nodes.
      */
     enum class OptionKey(val value: String) {
-        anyOrderMatch("AnyOrderMatch"),
-        collectionEqualCount("CollectionEqualCount"),
-        primitiveExactMatch("PrimitiveExactMatch"),
-        keyMustBeAbsent("KeyMustBeAbsent")
+        AnyOrderMatch("AnyOrderMatch"),
+        CollectionEqualCount("CollectionEqualCount"),
+        PrimitiveExactMatch("PrimitiveExactMatch"),
+        KeyMustBeAbsent("KeyMustBeAbsent")
     }
 
     /**
@@ -310,65 +320,20 @@ class NodeConfig {
     // Property accessors for each option which use the `options` set for the current node
     // and fall back to subtree options.
     var anyOrderMatch: Config
-        get() = options[OptionKey.anyOrderMatch] ?: subtreeOptions[OptionKey.anyOrderMatch]!!
-        set(value) { options[OptionKey.anyOrderMatch] = value }
+        get() = options[OptionKey.AnyOrderMatch] ?: subtreeOptions[OptionKey.AnyOrderMatch]!!
+        set(value) { options[OptionKey.AnyOrderMatch] = value }
 
     var collectionEqualCount: Config
-        get() = options[OptionKey.collectionEqualCount] ?: subtreeOptions[OptionKey.collectionEqualCount]!!
-        set(value) { options[OptionKey.collectionEqualCount] = value }
+        get() = options[OptionKey.CollectionEqualCount] ?: subtreeOptions[OptionKey.CollectionEqualCount]!!
+        set(value) { options[OptionKey.CollectionEqualCount] = value }
 
     var keyMustBeAbsent: Config
-        get() = options[OptionKey.keyMustBeAbsent] ?: subtreeOptions[OptionKey.keyMustBeAbsent]!!
-        set(value) { options[OptionKey.keyMustBeAbsent] = value }
+        get() = options[OptionKey.KeyMustBeAbsent] ?: subtreeOptions[OptionKey.KeyMustBeAbsent]!!
+        set(value) { options[OptionKey.KeyMustBeAbsent] = value }
 
     var primitiveExactMatch: Config
-        get() = options[OptionKey.primitiveExactMatch] ?: subtreeOptions[OptionKey.primitiveExactMatch]!!
-        set(value) { options[OptionKey.primitiveExactMatch] = value }
-
-    companion object {
-        /**
-         * Resolves a given node's option using the following precedence:
-         * 1. Single node option
-         *    a. Current node
-         *    b. Wildcard child
-         *    c. Parent node
-         *
-         * 2. Subtree option
-         *    a. Current node
-         *    b. Wildcard child
-         *    c. Parent node
-         *
-         * This is to handle the case where an array has a node-specific option like wildcard match which
-         * should apply to all direct children (that is, only 1 level down), and one of the children has a
-         * node specific option disabling wildcard match.
-         */
-        fun resolveOption(option: NodeConfig.OptionKey, node: NodeConfig?, parentNode: NodeConfig): NodeConfig.Config {
-            // Single node options
-            // Current node
-            node?.options?.get(option)?.let {
-                return it
-            }
-            // Wildcard child
-            node?.wildcardChildren?.options?.get(option)?.let {
-                return it
-            }
-            // Check array's node-specific option
-            parentNode.options[option]?.let {
-                return it
-            }
-            // Check node's subtree option, falling back to array node's default subtree config
-            return when (option) {
-                OptionKey.anyOrderMatch ->
-                    node?.anyOrderMatch ?: node?.wildcardChildren?.anyOrderMatch ?: parentNode.anyOrderMatch
-                OptionKey.collectionEqualCount ->
-                    node?.collectionEqualCount ?: node?.wildcardChildren?.collectionEqualCount ?: parentNode.collectionEqualCount
-                OptionKey.keyMustBeAbsent ->
-                    node?.keyMustBeAbsent ?: node?.wildcardChildren?.keyMustBeAbsent ?: parentNode.keyMustBeAbsent
-                OptionKey.primitiveExactMatch ->
-                    node?.primitiveExactMatch ?: node?.wildcardChildren?.primitiveExactMatch ?: parentNode.primitiveExactMatch
-            }
-        }
-    }
+        get() = options[OptionKey.PrimitiveExactMatch] ?: subtreeOptions[OptionKey.PrimitiveExactMatch]!!
+        set(value) { options[OptionKey.PrimitiveExactMatch] = value }
 
     /**
      * Creates a new node with the given values.
@@ -377,6 +342,7 @@ class NodeConfig {
      * These subtree options will be used for all descendants unless otherwise specified. If any subtree option keys are missing,
      * a default value will be provided.
      */
+    @JvmOverloads
     constructor(name: String?,
                 options: MutableMap<OptionKey, Config> = mutableMapOf(),
                 subtreeOptions: MutableMap<OptionKey, Config>,
@@ -397,6 +363,52 @@ class NodeConfig {
         this.wildcardChildren = wildcardChildren
     }
 
+    companion object {
+        /**
+         * Resolves a given node's option using the following precedence:
+         * 1. Single node option
+         *    a. Current node
+         *    b. Wildcard child
+         *    c. Parent node
+         *
+         * 2. Subtree option
+         *    a. Current node
+         *    b. Wildcard child
+         *    c. Parent node
+         *
+         * This is to handle the case where an array has a node-specific option like wildcard match which
+         * should apply to all direct children (that is, only 1 level down), and one of the children has a
+         * node specific option disabling wildcard match.
+         */
+        @JvmStatic
+        fun resolveOption(option: OptionKey, node: NodeConfig?, parentNode: NodeConfig): Config {
+            // Single node options
+            // Current node
+            node?.options?.get(option)?.let {
+                return it
+            }
+            // Wildcard child
+            node?.wildcardChildren?.options?.get(option)?.let {
+                return it
+            }
+            // Check array's node-specific option
+            parentNode.options[option]?.let {
+                return it
+            }
+            // Check node's subtree option, falling back to array node's default subtree config
+            return when (option) {
+                OptionKey.AnyOrderMatch ->
+                    node?.anyOrderMatch ?: node?.wildcardChildren?.anyOrderMatch ?: parentNode.anyOrderMatch
+                OptionKey.CollectionEqualCount ->
+                    node?.collectionEqualCount ?: node?.wildcardChildren?.collectionEqualCount ?: parentNode.collectionEqualCount
+                OptionKey.KeyMustBeAbsent ->
+                    node?.keyMustBeAbsent ?: node?.wildcardChildren?.keyMustBeAbsent ?: parentNode.keyMustBeAbsent
+                OptionKey.PrimitiveExactMatch ->
+                    node?.primitiveExactMatch ?: node?.wildcardChildren?.primitiveExactMatch ?: parentNode.primitiveExactMatch
+            }
+        }
+    }
+
     /**
      * Determines if two `NodeConfig` instances are equal based on their properties.
      */
@@ -414,8 +426,13 @@ class NodeConfig {
      * Creates a deep copy of the current `NodeConfig` instance.
      */
     fun deepCopy(): NodeConfig {
-        val copiedNode = NodeConfig(name = name, options = HashMap(options), subtreeOptions = HashMap(subtreeOptions), children = children.map { it.deepCopy() }.toMutableSet(), wildcardChildren = wildcardChildren?.deepCopy())
-        return copiedNode
+        return NodeConfig(
+            name = name,
+            options = HashMap(options),
+            subtreeOptions = HashMap(subtreeOptions),
+            children = children.map { it.deepCopy() }.toMutableSet(),
+            wildcardChildren = wildcardChildren?.deepCopy()
+        )
     }
 
     /**
@@ -508,7 +525,7 @@ class NodeConfig {
         if (pathComponents.isEmpty()) {
             // Apply the node option to the final node
             nodes.forEach { node ->
-                if (pathConfig.scope == Scope.subtree) {
+                if (pathConfig.scope == Scope.Subtree) {
                     // Propagate this subtree option update to all children
                     propagateSubtreeOption(node, pathConfig)
                 } else {
@@ -535,10 +552,10 @@ class NodeConfig {
                     // This is the legacy AnyOrder that should apply to all children
                     // Apply the option to the parent level so it applies to all children
                     if (pathComponentName == "[*]") {
-                        node.options[OptionKey.anyOrderMatch] =
+                        node.options[OptionKey.AnyOrderMatch] =
                             Config(isActive = true)
                     } else {
-                        child.options[OptionKey.anyOrderMatch] =
+                        child.options[OptionKey.AnyOrderMatch] =
                             Config(isActive = true)
                     }
                 }
@@ -832,7 +849,7 @@ class NodeConfig {
         // Handle edge case where input is empty
         if (pathComponent.isEmpty()) return Pair("", listOf())
 
-        var stringComponent: String = ""
+        var stringComponent = ""
         val arrayComponents = mutableListOf<String>()
         var bracketCount = 0
         var componentBuilder = StringBuilder()
