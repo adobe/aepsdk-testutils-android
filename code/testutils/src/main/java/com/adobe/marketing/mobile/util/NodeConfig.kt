@@ -542,7 +542,7 @@ class NodeConfig {
         val nextNodes = mutableListOf<NodeConfig>()
 
         nodes.forEach { node ->
-            // Note: the `[*]` case is processed as name = "[*]" not name is nil
+            // Note: the `[*]` case is processed as node name = "[*]" not node name = null
             pathComponent.name?.let { pathComponentName ->
                 val child = findOrCreateChild(node, pathComponentName, pathComponent.isWildcard)
                 nextNodes.add(child)
@@ -802,8 +802,12 @@ class NodeConfig {
      * a list containing an empty string is returned. If no components are found, an empty list is returned.
      */
     fun getObjectPathComponents(path: String?): List<String> {
-        // Handle edge case where input is null or empty
-        if (path.isNullOrEmpty()) return listOf("")
+        // Handle edge case where input is null
+        if (path == null) {
+            return emptyList()
+        }
+        // Handle edge case where input is empty
+        if (path.isEmpty()) return listOf("")
 
         val segments = mutableListOf<String>()
         var startIndex = 0
@@ -881,7 +885,9 @@ class NodeConfig {
                         lastArrayAccessEnd = index
                     }
                 }
-                pathComponent[index] == '\\' -> continue // skip adding the escape character
+                pathComponent[index] == '\\' -> {
+                    componentBuilder.append('\\')
+                }
                 bracketCount == 0 && index < lastArrayAccessEnd -> {
                     stringComponent = pathComponent.substring(0, index + 1)
                     break
