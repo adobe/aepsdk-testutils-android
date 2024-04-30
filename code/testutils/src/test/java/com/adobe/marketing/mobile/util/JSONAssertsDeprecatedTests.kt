@@ -17,13 +17,13 @@ import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.assertThrows
 import org.junit.Test
-class JSONAssertsTests {
+class JSONAssertsDeprecatedAPITests {
     // Value matching validation
     /**
      * Validates `null` equated to itself is true
      */
     @Test
-    fun `should match when both values are null`() {
+    fun testAssertEqual_whenBothValuesAreNull_shouldPass() {
         val expected = null
         val actual = null
 
@@ -39,7 +39,7 @@ class JSONAssertsTests {
      * every variation.
      */
     @Test
-    fun `should validate alternate path wildcard order independence`() {
+    fun testAsserts_whenUsingAlternatePathWildcards_shouldFunctionIndependentlyOfOrder() {
         val expectedJSONString = """
         [1, 2]
         """.trimIndent()
@@ -57,18 +57,11 @@ class JSONAssertsTests {
         assertTypeMatch(expected, actual, exactMatchPaths = listOf("[*1]", "[*0]"))
     }
 
-
-
     /**
-     * Validates the behavior of general and specific index wildcards:
-     * 1. Both are compatible and can mark an index for wildcard matching.
-     * 2. The general wildcard acts as a superset of any specific index wildcard.
-     *
-     * Consequence: Tests that require wildcard matching for all expected indexes
-     * can use the general wildcard alone.
+     * Validates specific index wildcards
      */
     @Test
-    fun `should verify general wildcard as superset of specific index wildcards`() {
+    fun testAsserts_whenUsingSpecificIndexWildcards_shouldMatchDesignatedIndicesOnly() {
         val expectedJSONString = """
         [1, 2]
         """.trimIndent()
@@ -80,21 +73,36 @@ class JSONAssertsTests {
         val actual = JSONArray(actualJSONString)
 
         assertExactMatch(expected, actual, typeMatchPaths = listOf("[*0]", "[*1]"))
-        assertExactMatch(expected, actual, typeMatchPaths = listOf("[*]"))
-
         assertTypeMatch(expected, actual, exactMatchPaths = listOf("[*0]", "[*1]"))
+    }
+
+    /**
+     * Validates the general wildcard acts as a superset of any specific index wildcard.
+     *
+     * Consequence: Tests that require wildcard matching for all expected indexes
+     * can use the general wildcard alone.
+     */
+    @Test
+    fun testAsserts_whenUsingGeneralWildcard_shouldMatchAllDesignatedIndices() {
+        val expectedJSONString = """
+        [1, 2]
+        """.trimIndent()
+
+        val actualJSONString = """
+        ["a", "b", 1, 2]
+        """.trimIndent()
+        val expected = JSONArray(expectedJSONString)
+        val actual = JSONArray(actualJSONString)
+
+        assertExactMatch(expected, actual, typeMatchPaths = listOf("[*]"))
         assertTypeMatch(expected, actual, exactMatchPaths = listOf("[*]"))
     }
 
-
     /**
-     * Validates that wildcard character can be placed in front or behind the index.
-     *
-     * Consequence: Tests can use a standard format for asterisk placement, without
-     * having to test all variations.
+     * Validates that the wildcard character `*` can only be placed to the left of the index value.
      */
     @Test
-    fun `should validate wildcard placement before and after index`() {
+    fun testAsserts_whenWildcardBeforeIndex_shouldMatchDesignatedIndex() {
         val expectedJSONString = """
         [1]
         """.trimIndent()
@@ -106,20 +114,38 @@ class JSONAssertsTests {
         val actual = JSONArray(actualJSONString)
 
         assertExactMatch(expected, actual, typeMatchPaths = listOf("[*0]"))
-        assertExactMatch(expected, actual, typeMatchPaths = listOf("[0*]"))
-
         assertTypeMatch(expected, actual, exactMatchPaths = listOf("[*0]"))
-        assertTypeMatch(expected, actual, exactMatchPaths = listOf("[0*]"))
+    }
+
+    /**
+     * Validates that incorrect placement of wildcard character `*` causes a test failure
+     */
+    @Test
+    fun testAsserts_whenWildcardPlacementAfterIndex_shouldThrowAssertion() {
+        val expectedJSONString = """
+        [1]
+        """.trimIndent()
+
+        val actualJSONString = """
+        ["a", 1]
+        """.trimIndent()
+        val expected = JSONArray(expectedJSONString)
+        val actual = JSONArray(actualJSONString)
+
+        assertThrows(AssertionError::class.java) {
+            assertExactMatch(expected, actual, typeMatchPaths = listOf("[0*]"))
+        }
+        assertThrows(AssertionError::class.java) {
+            assertTypeMatch(expected, actual, exactMatchPaths = listOf("[0*]"))
+        }
     }
 
     // Array tests
     /**
-     * Validates:
-     * 1. Specific index alternate path checks only against its paired index, as expected.
-     * 2. Wildcard index allows for matching other positions.
+     * Validates: specific index alternate path checks only against its paired index, as expected.
      */
     @Test
-    fun `should match specific index to paired index and wildcard to any position`() {
+    fun testAsserts_whenSpecificIndexMismatches_shouldThrowAssertion() {
         val expectedJSONString = """
         [1]
         """.trimIndent()
@@ -133,11 +159,27 @@ class JSONAssertsTests {
         assertThrows(AssertionError::class.java) {
             assertExactMatch(expected, actual, typeMatchPaths = listOf("[0]"))
         }
-        assertExactMatch(expected, actual, typeMatchPaths = listOf("[*]"))
-
         assertThrows(AssertionError::class.java) {
             assertTypeMatch(expected, actual, exactMatchPaths = listOf("[0]"))
         }
+    }
+
+    /**
+     * Validates: wildcard index allows for matching other positions.
+     */
+    @Test
+    fun testAsserts_whenWildcardIndexUsed_shouldMatchAtAnyPosition() {
+        val expectedJSONString = """
+        [1]
+        """.trimIndent()
+
+        val actualJSONString = """
+        ["a", 1]
+        """.trimIndent()
+        val expected = JSONArray(expectedJSONString)
+        val actual = JSONArray(actualJSONString)
+
+        assertExactMatch(expected, actual, typeMatchPaths = listOf("[*]"))
         assertTypeMatch(expected, actual, exactMatchPaths = listOf("[*]"))
     }
 
@@ -148,7 +190,7 @@ class JSONAssertsTests {
      * fails to satisfy the unspecified index `expected[1]`.
      */
     @Test
-    fun `should prioritize standard index matches over wildcard matches`() {
+    fun testAsserts_whenStandardIndexMatchesOverWildcard_shouldPass() {
         val expectedJSONString = """
         [1, 1]
         """.trimIndent()
@@ -160,7 +202,6 @@ class JSONAssertsTests {
         val actual = JSONArray(actualJSONString)
 
         assertExactMatch(expected, actual, typeMatchPaths = listOf("[*0]"))
-
         assertTypeMatch(expected, actual, exactMatchPaths = listOf("[*0]"))
     }
 
@@ -170,7 +211,7 @@ class JSONAssertsTests {
      * 2. Wildcard matching should correctly match with any appropriate index.
      */
     @Test
-    fun `should match specific indexes and align wildcards with appropriate indexes`() {
+    fun testAsserts_whenSpecificIndexesMatchAndWildcardsAlignAppropriately_shouldPass() {
         val expectedJSONString = """
         [1, 2]
         """.trimIndent()
@@ -194,7 +235,7 @@ class JSONAssertsTests {
      * Validates that specific index wildcards only apply to the index specified.
      */
     @Test
-    fun `should match specific index wildcard to its designated index only`() {
+    fun testAsserts_whenIndexWildcardSpecified_shouldMatchDesignatedIndexOnly() {
         val expectedJSONString = """
         [1, 2]
         """.trimIndent()
@@ -206,7 +247,6 @@ class JSONAssertsTests {
         val actual = JSONArray(actualJSONString)
 
         assertExactMatch(expected, actual, typeMatchPaths = listOf("[*1]"))
-
         assertTypeMatch(expected, actual, exactMatchPaths = listOf("[*1]"))
     }
 
@@ -215,7 +255,7 @@ class JSONAssertsTests {
      * This covers both specific index and wildcard index styles.
      */
     @Test
-    fun `should correctly chain array-style with key-value access`() {
+    fun testAsserts_whenChainingAccessWithSpecificAndWildcardIndices_shouldMatchDesignatedKeyOnly() {
         val expectedJSONString = """
         [
             {
@@ -249,7 +289,7 @@ class JSONAssertsTests {
      * Validates that chained array-style access functions correctly.
      */
     @Test
-    fun `should correctly chain array-style access 2x`() {
+    fun testAsserts_whenChainingArrayAccessTwice_shouldMatchExactButThrowTypeMismatch() {
         val expectedJSONString = """
         [
             [1]
@@ -275,7 +315,7 @@ class JSONAssertsTests {
      * Validates that longer chained array-style access functions correctly.
      */
     @Test
-    fun `should correctly chain array-style access 4x`() {
+    fun testAsserts_whenChainingArrayAccessFourTimes_shouldMatchExactButThrowTypeMismatch() {
         val expectedJSONString = """
         [[[[1]]]]
         """.trimIndent()
@@ -298,7 +338,7 @@ class JSONAssertsTests {
      * This covers both specific index and wildcard index styles.
      */
     @Test
-    fun `should correctly chain key-value with array-style access`() {
+    fun testAsserts_whenChainingKeyValueWithArrayAccess_shouldMatchExactButThrowTypeMismatch() {
         val expectedJSONString = """
         {
             "key1": [1]
