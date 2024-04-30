@@ -12,17 +12,14 @@
 package com.adobe.marketing.mobile.util
 
 import org.json.JSONArray
+import org.json.JSONException
 import org.json.JSONObject
 import org.junit.Assert.fail
 import org.junit.Assert.assertEquals
-import java.util.regex.PatternSyntaxException
 
 object JSONAsserts {
     /**
      * Asserts exact equality between two [JSONObject] or [JSONArray] instances.
-     *
-     * In the event of an assertion failure, this function provides a trace of the key path,
-     * which includes dictionary keys and array indexes, to aid debugging.
      *
      * @param expected The expected [JSONObject] or [JSONArray] to compare.
      * @param actual The actual [JSONObject] or [JSONArray] to compare.
@@ -31,14 +28,32 @@ object JSONAsserts {
      */
     @JvmStatic
     fun assertEqual(expected: Any?, actual: Any?) {
-        assertEqual(expected = expected, actual = actual, keyPath = mutableListOf(), shouldAssert = true)
+        if (expected == null && actual == null) {
+            return
+        }
+        if (expected == null || actual == null) {
+            fail("""
+                ${if (expected == null) "Expected is null" else "Actual is null"} and 
+                ${if (expected == null) "Actual" else "Expected"} is non-null.
+        
+                Expected: ${expected.toString()}
+        
+                Actual: ${actual.toString()}
+            """.trimIndent())
+            return
+        }
+        // Exact equality is just a special case of exact match
+        assertExactMatch(expected, actual, CollectionEqualCount(isActive = true, scope = NodeConfig.Scope.Subtree))
     }
 
     /**
-     * Performs a flexible JSON comparison where only the key-value pairs from the expected JSON are required.
-     * By default, the function validates that both values are of the same type.
+     * Performs JSON validation where only the values from the `expected` JSON are required.
+     * By default, the comparison logic uses the value type match option, only validating that both values are of the same type.
      *
-     * Alternate mode paths enable switching from the default type matching mode to exact value matching
+     * Both objects and arrays use extensible collections by default, meaning that only the elements in `expected` are
+     * validated.
+     *
+     * Alternate mode paths enable switching from the default type matching mode to exact matching
      * mode for specified paths onward.
      *
      * For example, given an expected JSON like:
@@ -51,41 +66,164 @@ object JSONAsserts {
      *   "key[123]": 1
      * }
      * ```
-     * An example [exactMatchPaths] path for this JSON would be: `"key2[1].nest2"`.
+     * An example `exactMatchPaths` path for this JSON would be: `"key2[1].nest2"`.
      *
-     * Alternate mode paths must begin from the top level of the expected JSON.
-     * Multiple paths can be defined. If two paths collide, the shorter one takes priority.
+     * Alternate mode paths must begin from the top level of the expected JSON. Multiple paths can be defined.
      *
-     * Formats for keys:
-     * - Nested keys: Use dot notation, e.g., "key3.key4".
-     * - Keys with dots: Escape the dot, e.g., "key\.name".
+     * Formats for object keys:
+     * - Standard keys - The key name itself: `"key1"`
+     * - Nested keys - Use dot notation: `"key3.key4"`.
+     * - Keys with dots in the name: Escape the dot notation with a backslash: `"key\.name"`.
      *
      * Formats for arrays:
-     * - Index specification: `[<INT>]` (e.g., `[0]`, `[28]`).
-     * - Keys with array brackets: Escape the brackets, e.g., `key\[123\]`.
+     * - Standard index - The index integer inside square brackets: `[<INT>]` (e.g., `[0]`, `[28]`).
+     * - Keys with array brackets in the name - Escape the brackets with backslashes: `key\[123\]`.
      *
-     * For wildcard array matching, where position doesn't matter:
-     * 1. Specific index with wildcard: `[*<INT>]` or `[<INT>*]` (ex: `[*1]`, `[28*]`). The element
-     * at the given index in [expected] will use wildcard matching in [actual].
-     * 2. Universal wildcard: `[*]`. All elements in [expected] will use wildcard matching in [actual].
+     * For any position array element matching:
+     * 1. Specific index: `[*<INT>]` (ex: `[*0]`, `[*28]`). Only a single `*` character MUST be placed to the
+     * left of the index value. The element at the given index in `expected` will use any position matching in `actual`.
+     * 2. All elements: `[*]`. All elements in `expected` will use any position matching in `actual`.
      *
-     * In array comparisons, elements are compared in order, up to the last element of the expected array.
-     * When combining wildcard and standard indexes, regular indexes are validated first.
+     * When combining any position option indexes and standard indexes, standard indexes are validated first.
      *
-     * @param expected The expected JSON in [JSONObject] or [JSONArray] format to compare.
-     * @param actual The actual JSON in [JSONObject] or [JSONArray] format to compare.
+     * @param expected The expected JSON ([JSONObject], [JSONArray], or types supported by [getJSONRepresentation]) to compare.
+     * @param actual The actual JSON ([JSONObject], [JSONArray], or types supported by [getJSONRepresentation]) to compare.
      * @param exactMatchPaths The key paths in the expected JSON that should use exact matching mode, where values require both the same type and literal value.
      */
     @JvmStatic
+    @JvmOverloads
+    @JvmName("assertTypeMatchWithExactMatchPaths")
     fun assertTypeMatch(expected: Any, actual: Any?, exactMatchPaths: List<String> = emptyList()) {
-        val pathTree = generatePathTree(paths = exactMatchPaths)
-        assertFlexibleEqual(expected = expected, actual = actual, pathTree = pathTree, exactMatchMode = false)
+        val treeDefaults = listOf(
+            AnyOrderMatch(isActive = false),
+            CollectionEqualCount(isActive = false),
+            KeyMustBeAbsent(isActive = false),
+            ValueTypeMatch()
+        )
+        validate(expected, actual, listOf(ValueExactMatch(exactMatchPaths)), treeDefaults, true)
     }
 
     /**
-     * Performs a flexible JSON comparison where only the key-value pairs from the expected JSON are required.
-     * By default, the function uses exact match mode, validating that both values are of the same type
-     * and have the same literal value.
+     * Performs JSON validation where only the values from the `expected` JSON are required by default.
+     * By default, the comparison logic uses the value type match option, only validating that both values are of the same type.
+     *
+     * Both objects and arrays use extensible collections by default, meaning that only the elements in `expected` are
+     * validated.
+     *
+     * Path options allow for powerful customizations to the comparison logic; see structs conforming to [MultiPathConfig]:
+     * - [AnyOrderMatch]
+     * - [CollectionEqualCount]
+     * - [KeyMustBeAbsent]
+     * - [ValueExactMatch], [ValueTypeMatch]
+     *
+     * For example, given an expected JSON like:
+     * ```
+     * {
+     *   "key1": "value1",
+     *   "key2": [{ "nest1": 1}, {"nest2": 2}],
+     *   "key3": { "key4": 1 },
+     *   "key.name": 1,
+     *   "key[123]": 1
+     * }
+     * ```
+     * An example path for this JSON would be: `"key2[1].nest2"`.
+     *
+     * Paths must begin from the top level of the expected JSON. Multiple paths and path options can be used at the same time.
+     * Path options are applied sequentially. If an option overrides an existing one, the overriding will occur in the order in which
+     * the path options are specified.
+     *
+     * Formats for object keys:
+     * - Standard keys - The key name itself: `"key1"`
+     * - Nested keys - Use dot notation: `"key3.key4"`.
+     * - Keys with dots in the name: Escape the dot notation with a backslash: `"key\.name"`.
+     *
+     * Formats for arrays:
+     * - Standard index - The index integer inside square brackets: `[<INT>]` (e.g., `[0]`, `[28]`).
+     * - Keys with array brackets in the name - Escape the brackets with backslashes: `key\[123\]`.
+     *
+     * Formats for wildcard object key and array index names:
+     * - Array wildcard - All children elements of the array: `[*]` (ex: `key1[*].key3`)
+     * - Object wildcard - All children elements of the object: `*` (ex: `key1.*.key3`)
+     * - Key whose name is asterisk - Escape the asterisk with backslash: `"\*"`
+     * - Note that wildcard path options also apply to any existing specific nodes at the same level.
+     *
+     * - Parameters:
+     *   - expected: The expected JSON ([JSONObject], [JSONArray], or types supported by [getJSONRepresentation]) to compare.
+     *   - actual: The actual JSON ([JSONObject], [JSONArray], or types supported by [getJSONRepresentation]) to compare.
+     *   - pathOptions: The path options to use in the validation process.
+     */
+    @JvmStatic
+    fun assertTypeMatch(expected: Any, actual: Any?, pathOptions: List<MultiPathConfig>) {
+        val treeDefaults = listOf(
+            AnyOrderMatch(isActive = false),
+            CollectionEqualCount(isActive = false),
+            KeyMustBeAbsent(isActive = false),
+            ValueTypeMatch()
+        )
+        validate(expected, actual, pathOptions.toList(), treeDefaults, false)
+    }
+
+    /**
+     * Performs JSON validation where only the values from the `expected` JSON are required by default.
+     * By default, the comparison logic uses the value type match option, only validating that both values are of the same type.
+     *
+     * Both objects and arrays use extensible collections by default, meaning that only the elements in `expected` are
+     * validated.
+     *
+     * Path options allow for powerful customizations to the comparison logic; see structs conforming to [MultiPathConfig]:
+     * - [AnyOrderMatch]
+     * - [CollectionEqualCount]
+     * - [KeyMustBeAbsent]
+     * - [ValueExactMatch], [ValueTypeMatch]
+     *
+     * For example, given an expected JSON like:
+     * ```
+     * {
+     *   "key1": "value1",
+     *   "key2": [{ "nest1": 1}, {"nest2": 2}],
+     *   "key3": { "key4": 1 },
+     *   "key.name": 1,
+     *   "key[123]": 1
+     * }
+     * ```
+     * An example path for this JSON would be: `"key2[1].nest2"`.
+     *
+     * Paths must begin from the top level of the expected JSON. Multiple paths and path options can be used at the same time.
+     * Path options are applied sequentially. If an option overrides an existing one, the overriding will occur in the order in which
+     * the path options are specified.
+     *
+     * Formats for object keys:
+     * - Standard keys - The key name itself: `"key1"`
+     * - Nested keys - Use dot notation: `"key3.key4"`.
+     * - Keys with dots in the name: Escape the dot notation with a backslash: `"key\.name"`.
+     *
+     * Formats for arrays:
+     * - Standard index - The index integer inside square brackets: `[<INT>]` (e.g., `[0]`, `[28]`).
+     * - Keys with array brackets in the name - Escape the brackets with backslashes: `key\[123\]`.
+     *
+     * Formats for wildcard object key and array index names:
+     * - Array wildcard - All children elements of the array: `[*]` (ex: `key1[*].key3`)
+     * - Object wildcard - All children elements of the object: `*` (ex: `key1.*.key3`)
+     * - Key whose name is asterisk - Escape the asterisk with backslash: `"\*"`
+     * - Note that wildcard path options also apply to any existing specific nodes at the same level.
+     *
+     * - Parameters:
+     *   - expected: The expected JSON ([JSONObject], [JSONArray], or types supported by [getJSONRepresentation]) to compare.
+     *   - actual: The actual JSON ([JSONObject], [JSONArray], or types supported by [getJSONRepresentation]) to compare.
+     *   - pathOptions: The path options to use in the validation process.
+     */
+    @JvmStatic
+    fun assertTypeMatch(expected: Any, actual: Any?, vararg pathOptions: MultiPathConfig) {
+        assertTypeMatch(expected, actual, pathOptions.toList())
+    }
+
+    /**
+     * Performs JSON validation where only the values from the `expected` JSON are required.
+     * By default, the comparison logic uses value exact match mode, validating that both values are of the same type
+     * **and** have the same literal value.
+     *
+     * Both objects and arrays use extensible collections by default, meaning that only the elements in `expected` are
+     * validated.
      *
      * Alternate mode paths enable switching from the default exact matching mode to type matching
      * mode for specified paths onward.
@@ -100,26 +238,25 @@ object JSONAsserts {
      *   "key[123]": 1
      * }
      * ```
-     * An example [typeMatchPaths] path for this JSON would be: `"key2[1].nest2"`.
+     * An example `typeMatchPaths` path for this JSON would be: `"key2[1].nest2"`.
      *
-     * Alternate mode paths must begin from the top level of the expected JSON.
-     * Multiple paths can be defined. If two paths collide, the shorter one takes priority.
+     * Alternate mode paths must begin from the top level of the expected JSON. Multiple paths can be defined.
      *
-     * Formats for keys:
-     * - Nested keys: Use dot notation, e.g., "key3.key4".
-     * - Keys with dots: Escape the dot, e.g., "key\.name".
+     * Formats for object keys:
+     * - Standard keys - The key name itself: `"key1"`
+     * - Nested keys - Use dot notation: `"key3.key4"`.
+     * - Keys with dots in the name: Escape the dot notation with a backslash: `"key\.name"`.
      *
      * Formats for arrays:
-     * - Index specification: `[<INT>]` (e.g., `[0]`, `[28]`).
-     * - Keys with array brackets: Escape the brackets, e.g., `key\[123\]`.
+     * - Standard index - The index integer inside square brackets: `[<INT>]` (e.g., `[0]`, `[28]`).
+     * - Keys with array brackets in the name - Escape the brackets with backslashes: `key\[123\]`.
      *
-     * For wildcard array matching, where position doesn't matter:
-     * 1. Specific index with wildcard: `[*<INT>]` or `[<INT>*]` (ex: `[*1]`, `[28*]`). The element
-     * at the given index in [expected] will use wildcard matching in [actual].
-     * 2. Universal wildcard: `[*]`. All elements in [expected] will use wildcard matching in [actual].
+     * For any position array element matching:
+     * 1. Specific index: `[*<INT>]` (ex: `[*0]`, `[*28]`). Only a single `*` character MUST be placed to the
+     * left of the index value. The element at the given index in `expected` will use any position matching in `actual`.
+     * 2. All elements: `[*]`. All elements in `expected` will use any position matching in `actual`.
      *
-     * In array comparisons, elements are compared in order, up to the last element of the expected array.
-     * When combining wildcard and standard indexes, regular indexes are validated first.
+     * When combining any position option indexes and standard indexes, standard indexes are validated first.
      *
      * @param expected The expected JSON in [JSONObject] or [JSONArray] format to compare.
      * @param actual The actual JSON in [JSONObject] or [JSONArray] format to compare.
@@ -127,77 +264,228 @@ object JSONAsserts {
      */
     @JvmStatic
     @JvmOverloads
+    @JvmName("assertExactMatchWithTypeMatchPaths")
     fun assertExactMatch(expected: Any, actual: Any?, typeMatchPaths: List<String> = emptyList()) {
-        val pathTree = generatePathTree(paths = typeMatchPaths)
-        assertFlexibleEqual(expected = expected, actual = actual, pathTree = pathTree, exactMatchMode = true)
+        val treeDefaults = listOf(
+            AnyOrderMatch(isActive = false),
+            CollectionEqualCount(isActive = false),
+            KeyMustBeAbsent(isActive = false),
+            ValueExactMatch()
+        )
+        validate(expected, actual, listOf(ValueTypeMatch(typeMatchPaths)), treeDefaults, true)
     }
 
     /**
-     * Compares the given [expected] and [actual] values for exact equality. If they are not equal and [shouldAssert] is `true`,
-     * an assertion error is thrown.
+     * Performs JSON validation where only the values from the `expected` JSON are required by default.
+     * By default, the comparison logic uses the value exact match option, validating that both values are of the same type
+     * **and** have the same literal value.
+     *
+     * Both objects and arrays use extensible collections by default, meaning that only the elements in `expected` are
+     * validated.
+     *
+     * Path options allow for powerful customizations to the comparison logic; see structs conforming to [MultiPathConfig]:
+     * - [AnyOrderMatch]
+     * - [CollectionEqualCount]
+     * - [KeyMustBeAbsent]
+     * - [ValueExactMatch], [ValueTypeMatch]
+     *
+     * For example, given an expected JSON like:
+     * ```
+     * {
+     *   "key1": "value1",
+     *   "key2": [{ "nest1": 1}, {"nest2": 2}],
+     *   "key3": { "key4": 1 },
+     *   "key.name": 1,
+     *   "key[123]": 1
+     * }
+     * ```
+     * An example path for this JSON would be: `"key2[1].nest2"`.
+     *
+     * Paths must begin from the top level of the expected JSON. Multiple paths and path options can be used at the same time.
+     * Path options are applied sequentially. If an option overrides an existing one, the overriding will occur in the order in which
+     * the path options are specified.
+     *
+     * Formats for object keys:
+     * - Standard keys - The key name itself: `"key1"`
+     * - Nested keys - Use dot notation: `"key3.key4"`.
+     * - Keys with dots in the name: Escape the dot notation with a backslash: `"key\.name"`.
+     *
+     * Formats for arrays:
+     * - Standard index - The index integer inside square brackets: `[<INT>]` (e.g., `[0]`, `[28]`).
+     * - Keys with array brackets in the name - Escape the brackets with backslashes: `key\[123\]`.
+     *
+     * Formats for wildcard object key and array index names:
+     * - Array wildcard - All children elements of the array: `[*]` (ex: `key1[*].key3`)
+     * - Object wildcard - All children elements of the object: `*` (ex: `key1.*.key3`)
+     * - Key whose name is asterisk - Escape the asterisk with backslash: `"\*"`
+     * - Note that wildcard path options also apply to any existing specific nodes at the same level.
+     *
+     * - Parameters:
+     *   - expected: The expected JSON ([JSONObject], [JSONArray], or types supported by [getJSONRepresentation]) to compare.
+     *   - actual: The actual JSON ([JSONObject], [JSONArray], or types supported by [getJSONRepresentation]) to compare.
+     *   - pathOptions: The path options to use in the validation process.
+     */
+    @JvmStatic
+    fun assertExactMatch(expected: Any, actual: Any?, pathOptions: List<MultiPathConfig>) {
+        val treeDefaults = listOf(
+            AnyOrderMatch(isActive = false),
+            CollectionEqualCount(isActive = false),
+            KeyMustBeAbsent(isActive = false),
+            ValueExactMatch()
+        )
+        validate(expected, actual, pathOptions.toList(), treeDefaults, false)
+    }
+
+    /**
+     * Performs JSON validation where only the values from the `expected` JSON are required by default.
+     * By default, the comparison logic uses the value exact match option, validating that both values are of the same type
+     * **and** have the same literal value.
+     *
+     * Both objects and arrays use extensible collections by default, meaning that only the elements in `expected` are
+     * validated.
+     *
+     * Path options allow for powerful customizations to the comparison logic; see structs conforming to [MultiPathConfig]:
+     * - [AnyOrderMatch]
+     * - [CollectionEqualCount]
+     * - [KeyMustBeAbsent]
+     * - [ValueExactMatch], [ValueTypeMatch]
+     *
+     * For example, given an expected JSON like:
+     * ```
+     * {
+     *   "key1": "value1",
+     *   "key2": [{ "nest1": 1}, {"nest2": 2}],
+     *   "key3": { "key4": 1 },
+     *   "key.name": 1,
+     *   "key[123]": 1
+     * }
+     * ```
+     * An example path for this JSON would be: `"key2[1].nest2"`.
+     *
+     * Paths must begin from the top level of the expected JSON. Multiple paths and path options can be used at the same time.
+     * Path options are applied sequentially. If an option overrides an existing one, the overriding will occur in the order in which
+     * the path options are specified.
+     *
+     * Formats for object keys:
+     * - Standard keys - The key name itself: `"key1"`
+     * - Nested keys - Use dot notation: `"key3.key4"`.
+     * - Keys with dots in the name: Escape the dot notation with a backslash: `"key\.name"`.
+     *
+     * Formats for arrays:
+     * - Standard index - The index integer inside square brackets: `[<INT>]` (e.g., `[0]`, `[28]`).
+     * - Keys with array brackets in the name - Escape the brackets with backslashes: `key\[123\]`.
+     *
+     * Formats for wildcard object key and array index names:
+     * - Array wildcard - All children elements of the array: `[*]` (ex: `key1[*].key3`)
+     * - Object wildcard - All children elements of the object: `*` (ex: `key1.*.key3`)
+     * - Key whose name is asterisk - Escape the asterisk with backslash: `"\*"`
+     * - Note that wildcard path options also apply to any existing specific nodes at the same level.
+     *
+     * - Parameters:
+     *   - expected: The expected JSON ([JSONObject], [JSONArray], or types supported by [getJSONRepresentation]) to compare.
+     *   - actual: The actual JSON ([JSONObject], [JSONArray], or types supported by [getJSONRepresentation]) to compare.
+     *   - pathOptions: The path options to use in the validation process.
+     */
+    @JvmStatic
+    fun assertExactMatch(expected: Any, actual: Any?, vararg pathOptions: MultiPathConfig) {
+        assertExactMatch(expected, actual, pathOptions.toList())
+    }
+
+    private fun validate(
+        expected: Any,
+        actual: Any?,
+        pathOptions: List<MultiPathConfig>,
+        treeDefaults: List<MultiPathConfig>,
+        isLegacyMode: Boolean
+    ) {
+        try {
+            val nodeTree = generateNodeTree(pathOptions, treeDefaults, isLegacyMode)
+
+            val expectedJSON = getJSONRepresentation(expected)
+            if (expectedJSON == null) {
+                fail("Failed to convert expected to valid JSON representation.")
+            }
+            val actualJSON = getJSONRepresentation(actual)
+
+            validateActual(actualJSON, nodeTree = nodeTree)
+            validateJSON(expectedJSON, actualJSON, nodeTree = nodeTree)
+        } catch (e: java.lang.IllegalArgumentException) {
+            fail("Invalid JSON provided: ${e.message}")
+        }
+    }
+
+    /**
+     * Performs a customizable validation between the given `expected` and `actual` values, using the configured options.
+     * In case of a validation failure **and** if `shouldAssert` is `true`, a test failure occurs.
      *
      * @param expected The expected value to compare.
      * @param actual The actual value to compare.
-     * @param keyPath A list of keys indicating the path to the current value being compared. This is particularly
-     * useful for nested JSON objects and arrays. Defaults to an empty list.
-     * @param shouldAssert Indicates if an assertion error should be thrown if [expected] and [actual] are not equal.
-     *
-     * @return Returns true if [expected] and [actual] are equal, otherwise returns false.
-     *
-     * @throws AssertionError If [shouldAssert] is true and the [expected] and [actual] values are not equal.
+     * @param keyPath A list of keys or array indexes representing the path to the current value being compared. Defaults to an empty list.
+     * @param nodeTree A tree of configuration objects used to control various validation settings.
+     * @param shouldAssert Indicates if an assertion error should be thrown if `expected` and `actual` are not equal. Defaults to `true`.
+     * @return `true` if `expected` and `actual` are equal based on the settings in `nodeTree`, otherwise returns `false`.
      */
-    private fun assertEqual(expected: Any?, actual: Any?, keyPath: List<Any> = listOf(), shouldAssert: Boolean): Boolean {
-        val expectedIsNull = expected == null || expected == JSONObject.NULL
-        val actualIsNull = actual == null || actual == JSONObject.NULL
-        if (expectedIsNull && actualIsNull) {
+    private fun validateJSON(
+        expected: Any?,
+        actual: Any?,
+        keyPath: List<Any> = emptyList(),
+        nodeTree: NodeConfig,
+        shouldAssert: Boolean = true
+    ): Boolean {
+        if (expected == null || expected == JSONObject.NULL) {
             return true
         }
-        if (expectedIsNull || actualIsNull) {
+        if (actual == null || actual == JSONObject.NULL) {
             if (shouldAssert) {
-                fail(
-                    """
-                    ${if (expectedIsNull) "Expected is null" else "Actual is null"} and 
-                    ${if (expectedIsNull) "Actual" else "Expected"} is non-null.
+                fail("""
+                    Expected JSON is non-nil but Actual JSON is nil.
                     Expected: $expected
                     Actual: $actual
                     Key path: ${keyPathAsString(keyPath)}
-                """.trimIndent()
-                )
+                """.trimIndent())
             }
             return false
         }
 
         return when {
-            expected is String && actual is String -> {
-                if (shouldAssert) assertEquals("Key path: ${keyPathAsString(keyPath)}", expected, actual)
-                expected == actual
+            expected is String && actual is String ||
+                    expected is Boolean && actual is Boolean ||
+                    expected is Int && actual is Int ||
+                    expected is Double && actual is Double -> {
+                if (nodeTree.primitiveExactMatch.isActive) {
+                    if (shouldAssert) assertEquals(
+                        "Key path: ${keyPathAsString(keyPath)}",
+                        expected,
+                        actual
+                    )
+                    expected == actual
+                } else {
+                    true
+                }
             }
-            expected is Boolean && actual is Boolean -> {
-                if (shouldAssert) assertEquals("Key path: ${keyPathAsString(keyPath)}", expected, actual)
-                expected == actual
-            }
-            expected is Int && actual is Int -> {
-                if (shouldAssert) assertEquals("Key path: ${keyPathAsString(keyPath)}", expected, actual)
-                expected == actual
-            }
-            expected is Double && actual is Double -> {
-                if (shouldAssert) assertEquals("Key path: ${keyPathAsString(keyPath)}", expected, actual,
-                    0.0
-                )
-                expected == actual
-            }
-            expected is JSONObject && actual is JSONObject -> assertEqual(expected, actual, keyPath, shouldAssert = shouldAssert)
-            expected is JSONArray && actual is JSONArray -> assertEqual(expected, actual, keyPath, shouldAssert = shouldAssert)
+            expected is JSONObject && actual is JSONObject -> validateJSON(
+                expected as? JSONObject,
+                actual as? JSONObject,
+                keyPath,
+                nodeTree,
+                shouldAssert
+            )
+            expected is JSONArray && actual is JSONArray -> validateJSON(
+                expected as? JSONArray,
+                actual as? JSONArray,
+                keyPath,
+                nodeTree,
+                shouldAssert
+            )
             else -> {
                 if (shouldAssert) {
                     fail(
                         """
-                        Expected and Actual types do not match.
-                        Expected: $expected
-                        Actual: $actual
-                        Key path: ${keyPathAsString(keyPath)}
-                    """.trimIndent()
-                    )
+                    Expected and Actual types do not match.
+                    Expected: $expected
+                    Actual: ${actual}
+                    Key path: ${keyPathAsString(keyPath)}
+                """.trimIndent())
                 }
                 false
             }
@@ -205,430 +493,385 @@ object JSONAsserts {
     }
 
     /**
-     * Compares two [JSONObject] instances for exact equality. If they are not equal and [shouldAssert] is `true`,
-     * an assertion error is thrown.
+     * Performs a customizable validation between the given `expected` and `actual` arrays, using the configured options.
+     * In case of a validation failure **and** if `shouldAssert` is `true`, a test failure occurs.
      *
-     * @param expected The expected [JSONObject] to compare.
-     * @param actual The actual [JSONObject] to compare.
+     * @param expected The expected array to compare.
+     * @param actual The actual array to compare.
      * @param keyPath A list of keys or array indexes representing the path to the current value being compared.
-     * @param shouldAssert Indicates if an assertion error should be thrown if [expected] and [actual] are not equal.
-     *
-     * @return Returns `true` if [expected] and [actual] are exactly equal, otherwise returns `false`.
-     *
-     * @throws AssertionError If [shouldAssert] is true and the [expected] and [actual] JSON objects are not equal.
+     * @param nodeTree A tree of configuration objects used to control various validation settings.
+     * @param shouldAssert Indicates if an assertion error should be thrown if `expected` and `actual` are not equal.
+     * @return `true` if `expected` and `actual` are equal based on the settings in `nodeTree`, otherwise returns `false`.
      */
-    private fun assertEqual(expected: JSONObject?, actual: JSONObject?, keyPath: List<Any>, shouldAssert: Boolean): Boolean {
-        if (expected == null && actual == null) {
-            return true
-        }
-        if (expected == null || actual == null) {
-            if (shouldAssert) {
-                fail(
-                    """
-                    ${if (expected == null) "Expected is null" else "Actual is null"} and 
-                    ${if (expected == null) "Actual" else "Expected"} is non-null.
-                    Expected: $expected
-                    Actual: $actual
-                    Key path: ${keyPathAsString(keyPath)}
-                """.trimIndent()
-                )
-            }
-            return false
-        }
-        if (expected.length() != actual.length()) {
-            if (shouldAssert) {
-                fail(
-                    """
-                    Expected and Actual counts do not match (exact equality).
-                    Expected count: ${expected.length()}
-                    Actual count: ${actual.length()}
-                    Expected: $expected
-                    Actual: $actual
-                    Key path: ${keyPathAsString(keyPath)}
-                """.trimIndent()
-                )
-            }
-            return false
-        }
-        var finalResult = true
-        for (key in expected.keys()) {
-            finalResult = assertEqual(
-                expected = expected.get(key),
-                actual = actual.opt(key),
-                keyPath = keyPath.plus(key),
-                shouldAssert = shouldAssert
-            ) && finalResult
-        }
-        return finalResult
-    }
-
-    /**
-     * Compares two [JSONArray] instances for exact equality. If they are not equal and [shouldAssert] is `true`,
-     * an assertion error is thrown.
-     *
-     * @param expected The expected [JSONArray] to compare.
-     * @param actual The actual [JSONArray] to compare.
-     * @param keyPath A list of keys or array indexes representing the path to the current value being compared.
-     * @param shouldAssert Indicates if an assertion error should be thrown if [expected] and [actual] are not equal.
-     *
-     * @return Returns `true` if [expected] and [actual] are exactly equal, otherwise returns `false`.
-     *
-     * @throws AssertionError If [shouldAssert] is `true` and the [expected] and [actual] JSON arrays are not equal.
-     */
-    private fun assertEqual(
+    private fun validateJSON(
         expected: JSONArray?,
         actual: JSONArray?,
         keyPath: List<Any>,
-        shouldAssert: Boolean
+        nodeTree: NodeConfig,
+        shouldAssert: Boolean = true
     ): Boolean {
-        if (expected == null && actual == null) {
+        if (expected == null) {
             return true
         }
-        if (expected == null || actual == null) {
+        if (actual == null) {
             if (shouldAssert) {
                 fail("""
-                ${if (expected == null) "Expected is null" else "Actual is null"} and ${if (expected == null) "Actual" else "Expected"} is non-null.
-                Expected: ${expected.toString()}
-                Actual: ${actual.toString()}
-                Key path: ${keyPathAsString(keyPath)}
-                """.trimIndent())
-            }
-            return false
-        }
-        if (expected.length() != actual.length()) {
-            if (shouldAssert) {
-                fail("""
-                Expected and Actual counts do not match (exact equality).
-                Expected count: ${expected.length()}
-                Actual count: ${actual.length()}
+                Expected JSON is non-nil but Actual JSON is nil.
+    
                 Expected: $expected
+    
                 Actual: $actual
+    
                 Key path: ${keyPathAsString(keyPath)}
                 """.trimIndent())
             }
             return false
         }
-        var finalResult = true
-        for (index in 0 until expected.length()) {
-            finalResult = assertEqual(
-                expected = expected.get(index),
-                actual = actual.get(index),
-                keyPath = keyPath.plus(index),
-                shouldAssert = shouldAssert
-            ) && finalResult
-        }
-        return finalResult
-    }
 
-    // region Flexible assertion methods
-
-    /**
-     * Performs a flexible comparison between the given [expected] and [actual] values, optionally using exact match
-     * or value type match modes. In case of a mismatch and if [shouldAssert] is `true`, an assertion error is thrown.
-     *
-     * It allows for customized matching behavior through the [pathTree] and [exactMatchMode] parameters.
-     *
-     * @param expected The expected value to compare.
-     * @param actual The actual value to compare.
-     * @param keyPath A list of keys or array indexes representing the path to the current value being compared. Defaults to an empty list.
-     * @param pathTree A map representing specific paths within the JSON structure that should be compared using the alternate mode.
-     * @param exactMatchMode If `true`, performs an exact match comparison; otherwise, uses value type matching.
-     * @param shouldAssert Indicates if an assertion error should be thrown if [expected] and [actual] are not equal.
-     * Defaults to true.
-     *
-     * @return Returns `true` if [expected] and [actual] are equal based on the matching mode and the [pathTree], otherwise returns `false`.
-     *
-     * @throws AssertionError If [shouldAssert] is `true` and the [expected] and [actual] values are not equal.
-     */
-    private fun assertFlexibleEqual(
-        expected: Any?,
-        actual: Any?,
-        keyPath: List<Any> = listOf(),
-        pathTree: Map<String, Any>?,
-        exactMatchMode: Boolean,
-        shouldAssert: Boolean = true): Boolean {
-        val expectedIsNull = expected == null || expected == JSONObject.NULL
-        val actualIsNull = actual == null || actual == JSONObject.NULL
-        if (expectedIsNull) {
-            return true
-        }
-        if (actualIsNull) {
-            if (shouldAssert) {
-                fail("""
-                    Expected JSON is non-null but Actual JSON is null.
-                    Expected: $expected
-                    Actual: $actual
-                    Key path: ${keyPathAsString(keyPath)}
-                """)
-            }
-            return false
-        }
-
-        /**
-         * Compares the [expected] and [actual] values for equality based on the [exactMatchMode].
-         */
-        fun compareValuesAssumingTypeMatch(): Boolean {
-            if (exactMatchMode) {
-                if (shouldAssert) {
-                    assertEqual(expected, actual, keyPath, shouldAssert = shouldAssert)
-                }
-                return expected == actual
-            }
-            // The value type matching has already succeeded due to meeting the conditions in the switch case
-            return true
-        }
-
-        when {
-            expected is String && actual is String -> return compareValuesAssumingTypeMatch()
-            expected is Boolean && actual is Boolean -> return compareValuesAssumingTypeMatch()
-            expected is Int && actual is Int -> return compareValuesAssumingTypeMatch()
-            expected is Double && actual is Double -> return compareValuesAssumingTypeMatch()
-            expected is JSONArray && actual is JSONArray -> return assertFlexibleEqual(
-                expected = expected,
-                actual = actual,
-                keyPath = keyPath,
-                pathTree = pathTree,
-                exactMatchMode = exactMatchMode,
-                shouldAssert = shouldAssert)
-            expected is JSONObject && actual is JSONObject -> return assertFlexibleEqual(
-                expected = expected,
-                actual = actual,
-                keyPath = keyPath,
-                pathTree = pathTree,
-                exactMatchMode = exactMatchMode,
-                shouldAssert = shouldAssert)
-            else -> {
+        if (nodeTree.collectionEqualCount.isActive) {
+            if (expected.length() != actual.length()) {
                 if (shouldAssert) {
                     fail("""
-                    Expected and Actual types do not match.
+                    Expected JSON count does not match Actual JSON.
+
+                    Expected count: ${expected.length()}
+                    Actual count: ${actual.length()}
+
                     Expected: $expected
+
                     Actual: $actual
+
                     Key path: ${keyPathAsString(keyPath)}
-                """)
+                """.trimIndent())
                 }
                 return false
             }
+        } else if (expected.length() > actual.length()) {
+            if (shouldAssert) {
+                fail("""
+                Expected JSON has more elements than Actual JSON.
+
+                Expected count: ${expected.length()}
+                Actual count: ${actual.length()}
+
+                Expected: $expected
+
+                Actual: $actual
+
+                Key path: ${keyPathAsString(keyPath)}
+            """.trimIndent())
+            }
+            return false
         }
+
+        val expectedIndexes = (0 until expected.length()).associate { index ->
+            index.toString() to NodeConfig.resolveOption(
+                NodeConfig.OptionKey.AnyOrderMatch,
+                nodeTree.getChild(index),
+                nodeTree
+            )
+        }.toMutableMap()
+        val anyOrderIndexes = expectedIndexes.filter { it.value.isActive }
+
+        for (key in anyOrderIndexes.keys) {
+            expectedIndexes.remove(key)
+        }
+
+        val availableWildcardActualIndexes = mutableSetOf<String>().apply {
+            addAll((0 until actual.length()).map { it.toString() })
+            removeAll(expectedIndexes.keys)
+        }
+
+        var validationResult = true
+
+        for ((index, config) in expectedIndexes) {
+            val intIndex = index.toInt()
+            validationResult = validateJSON(
+                expected[intIndex],
+                actual[intIndex],
+                keyPath + intIndex,
+                nodeTree.getNextNode(index),
+                shouldAssert
+            ) && validationResult
+        }
+
+        for ((index, config) in anyOrderIndexes) {
+            val intIndex = index.toInt()
+
+            val actualIndex = availableWildcardActualIndexes.firstOrNull {
+                validateJSON(
+                    expected[intIndex],
+                    actual[it.toInt()],
+                    keyPath + intIndex,
+                    nodeTree.getNextNode(index),
+                    shouldAssert = false
+                )
+            }
+            if (actualIndex == null) {
+                if (shouldAssert) {
+                    fail("""
+                    Wildcard ${if (NodeConfig.resolveOption(NodeConfig.OptionKey.PrimitiveExactMatch, nodeTree.getChild(index), nodeTree).isActive) "exact" else "type"}
+                    match found no matches on Actual side satisfying the Expected requirement.
+            
+                    Requirement: $nodeTree
+            
+                    Expected: ${expected[intIndex]}
+            
+                    Actual (remaining unmatched elements): ${availableWildcardActualIndexes.map { actual[it.toInt()] }}
+            
+                    Key path: ${keyPathAsString(keyPath)}
+                """.trimIndent())
+                }
+                validationResult = false
+                break
+            } else {
+                availableWildcardActualIndexes.remove(actualIndex)
+            }
+
+        }
+        return validationResult
     }
 
     /**
-     * Performs a flexible comparison between the given [expected] and [actual] [JSONArray]s, optionally using exact match
-     * or value type match modes. In case of a mismatch and if [shouldAssert] is `true`, an assertion error is thrown.
+     * Performs a customizable validation between the given `expected` and `actual` dictionaries, using the configured options.
+     * In case of a validation failure **and** if `shouldAssert` is `true`, a test failure occurs.
      *
-     * It allows for customized matching behavior through the [pathTree] and [exactMatchMode] parameters.
-     *
-     * @param expected The expected [JSONArray] to compare.
-     * @param actual The actual [JSONArray] to compare.
+     * @param expected The expected dictionary to compare.
+     * @param actual The actual dictionary to compare.
      * @param keyPath A list of keys or array indexes representing the path to the current value being compared.
-     * @param pathTree A map representing specific paths within the JSON structure that should be compared using the alternate mode.
-     * @param exactMatchMode If `true`, performs an exact match comparison; otherwise, uses value type matching.
-     * @param shouldAssert Indicates if an assertion error should be thrown if [expected] and [actual] are not equal.
-     *
-     * @return Returns `true` if [expected] and [actual] are equal based on the matching mode and the [pathTree], otherwise returns `false`.
-     *
-     * @throws AssertionError If [shouldAssert] is `true` and the [expected] and [actual] JSON arrays are not equal.
+     * @param nodeTree A tree of configuration objects used to control various validation settings.
+     * @param shouldAssert Indicates if an assertion error should be thrown if `expected` and `actual` are not equal.
+     * @return `true` if `expected` and `actual` are equal based on the settings in `nodeTree`, otherwise returns `false`.
      */
-    private fun assertFlexibleEqual(
-        expected: JSONArray?,
-        actual: JSONArray?,
+    private fun validateJSON(
+        expected: JSONObject?,
+        actual: JSONObject?,
         keyPath: List<Any>,
-        pathTree: Map<String, Any>?,
-        exactMatchMode: Boolean,
-        shouldAssert: Boolean
+        nodeTree: NodeConfig,
+        shouldAssert: Boolean = true
     ): Boolean {
         if (expected == null) {
             return true
         }
-
         if (actual == null) {
             if (shouldAssert) {
                 fail("""
-                Expected JSON is non-null but Actual JSON is null.
-                Expected: $expected
-                Actual: $actual
-                Key path: ${keyPathAsString(keyPath)}
-            """.trimIndent())
+                    Expected JSON is non-nil but Actual JSON is nil.
+        
+                    Expected: $expected
+        
+                    Actual: $actual
+        
+                    Key path: ${keyPathAsString(keyPath)}
+                """.trimIndent())
             }
             return false
         }
-        if (expected.length() > actual.length()) {
-            if (shouldAssert) {
-                fail("""
-                Expected JSON has more elements than Actual JSON. Impossible for Actual to fulfill Expected requirements.
-                Expected count: ${expected.length()}
-                Actual count: ${actual.length()}
-                Expected: $expected
-                Actual: $actual
-                Key path: ${keyPathAsString(keyPath)}
-            """.trimIndent())
-            }
-            return false
-        }
-        // Convert the `actual` array into a mutable map, where the key is the array index and the
-        // value is the corresponding element. Used to prevent double matching.
-        val actualMap = (0 until actual.length()).associateBy({ it }, { actual[it] }).toMutableMap()
 
-        var expectedIndexes = (0 until expected.length()).toSet()
-        val wildcardIndexes: Set<Int>
-
-        // Collect all the keys from `pathTree` that either:
-        // 1. Mark the path end (where the value is a `String`), or
-        // 2. Contain the asterisk (*) character.
-        val pathEndKeys = pathTree?.filter{ (key, value) ->
-            value is String || key.contains('*')
-        }?.keys ?: setOf()
-
-        // If general wildcard is present, it supersedes other paths
-        if (pathEndKeys.contains("[*]")) {
-            wildcardIndexes = (0 until expected.length()).toSet()
-            expectedIndexes = setOf()
-        }
-        else {
-            // TODO: update this to be flat? since there's only 1 operation now instead of 3
-            // Strongly validates index notation: "[123]"
-            val arrayIndexValueRegex = """^\[(.*?)\]$"""
-            val indexValues = pathEndKeys
-                .flatMap { key -> getCapturedRegexGroups(text = key, regexPattern = arrayIndexValueRegex) }
-                .toSet()
-
-            fun filterConvertAndIntersect(
-                condition: (String) -> Boolean,
-                replacement: (String) -> String = { it }
-            ): Set<Int> {
-                var result = indexValues.filter(condition).mapNotNull { replacement(it).toIntOrNull() }.toSet()
-                val intersection = expectedIndexes.intersect(result)
-                result = intersection
-                expectedIndexes = expectedIndexes - intersection
-                return result
-            }
-
-            wildcardIndexes = filterConvertAndIntersect({ it.contains('*') }, { it.replace("*", "") })
-        }
-
-        var finalResult = true
-        // Expected side indexes that do not have alternate paths specified are matched first
-        // to their corresponding actual side index
-        for (index in expectedIndexes) {
-            val isPathEnd = pathTree?.get("[$index]") is String
-            finalResult = assertFlexibleEqual(
-                expected = expected.opt(index),
-                actual = actual.opt(index),
-                keyPath = keyPath.plus(index),
-                pathTree = pathTree?.get("[$index]") as? Map<String, Any>,
-                exactMatchMode = isPathEnd != exactMatchMode,
-                shouldAssert = shouldAssert) && finalResult
-            actualMap.remove(index)
-        }
-
-        // Wildcard indexes are allowed to match the remaining actual side elements
-        for (index in wildcardIndexes) {
-            val pathTreeValue = pathTree?.get("[*]")
-                ?: pathTree?.get("[*$index]")
-                ?: pathTree?.get("[$index*]")
-
-            val isPathEnd = pathTreeValue is String
-
-            val result = actualMap.toList().indexOfFirst {
-                assertFlexibleEqual(
-                    expected = expected.opt(index),
-                    actual = it.second,
-                    keyPath = keyPath.plus(index),
-                    pathTree = pathTreeValue as? Map<String, Any>,
-                    exactMatchMode = isPathEnd != exactMatchMode,
-                    shouldAssert = false)
-            }
-            if (result == -1) {
+        if (nodeTree.collectionEqualCount.isActive) {
+            if (expected.length() != actual.length()) {
                 if (shouldAssert) {
                     fail("""
-                            Wildcard ${if (isPathEnd != exactMatchMode) "exact" else "type"} match found no matches on Actual side satisfying the Expected requirement.
-                            Requirement: $pathTreeValue
-                            Expected: ${expected.opt(index)}
-                            Actual (remaining unmatched elements): ${actualMap.values}
-                            Key path: ${keyPathAsString(keyPath)}
-                        """.trimIndent())
+                    Expected JSON count does not match Actual JSON.
+
+                    Expected count: ${expected.length()}
+                    Actual count: ${actual.length()}
+
+                    Expected: $expected
+
+                    Actual: $actual
+
+                    Key path: ${keyPathAsString(keyPath)}
+                """.trimIndent())
                 }
-                finalResult = false
-                break
+                return false
             }
-            actualMap.remove(result)
+        } else if (expected.length() > actual.length()) {
+            if (shouldAssert) {
+                fail("""
+                Expected JSON has more elements than Actual JSON.
+
+                Expected count: ${expected.length()}
+                Actual count: ${actual.length()}
+
+                Expected: $expected
+
+                Actual: $actual
+
+                Key path: ${keyPathAsString(keyPath)}
+            """.trimIndent())
+            }
+            return false
         }
 
-        return finalResult
+        var validationResult = true
+
+        for (key in expected.keys()) {
+            val value = expected.get(key)
+            val actualValue = actual.opt(key)
+            validationResult = validateJSON(
+                value,
+                actualValue,
+                keyPath + key,
+                nodeTree.getNextNode(key),
+                shouldAssert
+            ) && validationResult
+        }
+        return validationResult
+    }
+
+
+    /**
+     * Validates the provided `actual` value against a specified `nodeTree` configuration.
+     *
+     * This method traverses a `NodeConfig` tree to validate the `actual` value according to the specified node configuration.
+     * It handles different types of values including dictionaries and arrays, and applies the relevant validation rules
+     * based on the configuration of each node in the tree.
+     *
+     * Note that this logic is meant to perform negative validation (for example, the absence of keys), and this means when `actual` nodes run out
+     * validation automatically passes. Positive validation should use `expected` + `validateJSON`.
+     *
+     * @param actual The value to be validated, wrapped in `AnyCodable`.
+     * @param keyPath An array representing the current traversal path in the node tree. Starts as an empty array.
+     * @param nodeTree The root of the `NodeConfig` tree against which the validation is performed.
+     * @return A `Boolean` indicating whether the `actual` value is valid based on the `nodeTree` configuration.
+     */
+    fun validateActual(
+        actual: Any?,
+        keyPath: List<Any> = listOf(),
+        nodeTree: NodeConfig
+    ): Boolean {
+        val actualValue = actual ?: return true
+
+        return when (actualValue) {
+            // Handle dictionaries
+            is JSONObject -> validateActual(
+                actual = actualValue,
+                keyPath = keyPath,
+                nodeTree = nodeTree
+            )
+            // Handle arrays
+            is JSONArray -> validateActual(
+                actual = actualValue,
+                keyPath = keyPath,
+                nodeTree = nodeTree
+            )
+            else -> {
+                // KeyMustBeAbsent check
+                // Value type validations currently do not have any options that should be handled by `actual`
+                // validation side - default is true
+                true
+            }
+        }
     }
 
     /**
-     * Performs a flexible comparison between the given [expected] and [actual] [JSONObject]s, optionally using exact match
-     * or value type match modes. In case of a mismatch and if [shouldAssert] is `true`, an assertion error is thrown.
+     * Validates a [JSONArray]'s values against the provided node configuration tree.
      *
-     * It allows for customized matching behavior through the [pathTree] and [exactMatchMode] parameters.
+     * This method iterates through each element in the given [JSONArray] and performs validation
+     * based on the provided [NodeConfig].
      *
-     * @param expected The expected [JSONObject] to compare.
-     * @param actual The actual [JSONObject] to compare.
-     * @param keyPath A list of keys or array indexes representing the path to the current value being compared.
-     * @param pathTree A map representing specific paths within the JSON structure that should be compared using the alternate mode.
-     * @param exactMatchMode If `true`, performs an exact match comparison; otherwise, uses value type matching.
-     * @param shouldAssert Indicates if an assertion error should be thrown if [expected] and [actual] are not equal.
-     *
-     * @return Returns `true` if [expected] and [actual] are equal based on the matching mode and the [pathTree], otherwise returns `false`.
-     *
-     * @throws AssertionError If [shouldAssert] is `true` and the [expected] and [actual] JSON objects are not equal.
+     * @param actual The [JSONArray] to be validated.
+     * @param keyPath An array representing the current path in the node tree during the traversal.
+     * @param nodeTree The current node in the [NodeConfig] tree against which the [actual] values are validated.
+     * @return A [Boolean] indicating whether all elements in the [actual] array are valid according to the node tree configuration.
      */
-    private fun assertFlexibleEqual(
-        expected: JSONObject?,
+    private fun validateActual(
+        actual: JSONArray?,
+        keyPath: List<Any>,
+        nodeTree: NodeConfig
+    ): Boolean {
+        val actualValues = actual ?: return true
+
+        var validationResult = true
+
+        for (index in 0 until actualValues.length()) {
+            validationResult = validateActual(
+                actual = actualValues.get(index),
+                keyPath = keyPath.plus(index),
+                nodeTree = nodeTree.getNextNode(index)
+            ) && validationResult
+        }
+
+        return validationResult
+    }
+
+    /**
+     * Validates a dictionary of `AnyCodable` values against the provided node configuration tree.
+     *
+     * This method iterates through each key-value pair in the given dictionary and performs validation
+     * based on the provided `NodeConfig`.
+     *
+     * @param actual The dictionary of `AnyCodable` values to be validated.
+     * @param keyPath An array representing the current path in the node tree during the traversal.
+     * @param nodeTree The current node in the `NodeConfig` tree against which the `actual` values are validated.
+     * @return A `Boolean` indicating whether all key-value pairs in the `actual` dictionary are valid according to the node tree configuration.
+     */
+    private fun validateActual(
         actual: JSONObject?,
         keyPath: List<Any>,
-        pathTree: Map<String, Any>?,
-        exactMatchMode: Boolean,
-        shouldAssert: Boolean): Boolean {
-        if (expected == null) {
-            return true
-        }
-        if (actual == null) {
-            if (shouldAssert) {
+        nodeTree: NodeConfig
+    ): Boolean {
+        val actualValues = actual ?: return true
+
+        var validationResult = true
+
+        for (key in actualValues.keys()) {
+            // KeyMustBeAbsent check
+            // Check for keys that must be absent in the current node
+            val resolvedKeyMustBeAbsent = NodeConfig.resolveOption(NodeConfig.OptionKey.KeyMustBeAbsent, nodeTree.getChild(key), nodeTree)
+            if (resolvedKeyMustBeAbsent.isActive) {
                 fail("""
-                    Expected JSON is non-null but Actual JSON is null.
-                    Expected: $expected
-                    Actual: $actual
-                    Key path: ${keyPathAsString(keyPath)}
-                """)
+                Actual JSON should not have key with name: $key
+
+                Actual: $actualValues
+
+                Key path: ${keyPathAsString(keyPath + listOf(key))}
+            """.trimIndent())
+                validationResult = false
             }
-            return false
-        }
-        if (expected.length() > actual.length()) {
-            if (shouldAssert) {
-                fail("""
-                    Expected JSON has more elements than Actual JSON.
-                    Expected count: ${expected.length()}
-                    Actual count: ${actual.length()}
-                    Expected: $expected
-                    Actual: $actual
-                    Key path: ${keyPathAsString(keyPath)}
-                """)
-            }
-            return false
-        }
-        var finalResult = true
-        val iterator: Iterator<String> = expected.keys()
-        while (iterator.hasNext()) {
-            val key = iterator.next()
-
-            val pathTreeValue = pathTree?.get(key)
-
-            val isPathEnd = pathTreeValue is String
-
-            finalResult = assertFlexibleEqual(
-                expected = expected.opt(key),
-                actual = actual.opt(key),
+            validationResult = validateActual(
+                actual = actualValues.get(key),
                 keyPath = keyPath.plus(key),
-                pathTree = pathTreeValue as? Map<String, Any>,
-                exactMatchMode = isPathEnd != exactMatchMode,
-                shouldAssert = shouldAssert) && finalResult
+                nodeTree = nodeTree.getNextNode(key)
+            ) && validationResult
         }
-        return finalResult
+        return validationResult
     }
-    // endregion
 
-    // region Private helpers
+    /**
+     * Generates a tree structure from an array of path `String`s.
+     *
+     * This function processes each path in `paths`, extracts its individual components using `processPathComponents`, and
+     * constructs a nested dictionary structure. The constructed dictionary is then merged into the main tree. If the resulting tree
+     * is empty after processing all paths, this function returns `null`.
+     *
+     * @param pathOptions An array of path `String`s to be processed. Each path represents a nested structure to be transformed
+     * into a tree-like dictionary.
+     * @param treeDefaults Defaults used for tree configuration.
+     * @param isLegacyMode Flag to determine whether legacy mode is used.
+     * @return A tree-like dictionary structure representing the nested structure of the provided paths. Returns `null` if the
+     * resulting tree is empty.
+     */
+    private fun generateNodeTree(
+        pathOptions: List<MultiPathConfig>,
+        treeDefaults: List<MultiPathConfig>,
+        isLegacyMode: Boolean
+    ): NodeConfig {
+        // Create the first node using the incoming defaults
+        val subtreeOptions: MutableMap<NodeConfig.OptionKey, NodeConfig.Config> = mutableMapOf()
+        for (treeDefault in treeDefaults) {
+            val key = treeDefault.optionKey
+            subtreeOptions[key] = treeDefault.config
+        }
+        val rootNode = NodeConfig(name = null, subtreeOptions = subtreeOptions)
+
+        for (pathConfig in pathOptions) {
+            rootNode.createOrUpdateNode(pathConfig, isLegacyMode)
+        }
+
+        return rootNode
+    }
 
     /**
      * Converts a key path represented by a list of JSON object keys and array indexes into a human-readable string format.
@@ -664,6 +907,47 @@ object JSONAsserts {
             }
         }
         return result
+    }
+
+    private fun getJSONRepresentation(obj: Any?): Any? {
+        return when (obj) {
+            null -> null
+            is JSONObject, is JSONArray -> obj
+            is Map<*, *> -> {
+                try {
+                    // Validate all strings are keys before trying to convert to JSON
+                    if (obj.keys.all { it is String }) {
+                        JSONObject(obj as Map<String, Any?>)
+                    } else {
+                        throw IllegalArgumentException("Failed to convert to JSON representation: Invalid JSON dictionary keys. Keys must be strings. Found: ${obj.keys}")
+                    }
+                } catch (e: Exception) {
+                    throw IllegalArgumentException("Failed to create JSONObject: $obj, with reason: ${e.message}")
+                }
+            }
+            is List<*> -> try {
+                JSONArray(obj)
+            } catch (e: Exception) {
+                throw IllegalArgumentException("Failed to create JSONArray from List: $obj, with reason: ${e.message}")
+            }
+            is Array<*> -> try {
+                JSONArray(obj.toList())
+            } catch (e: Exception) {
+                throw IllegalArgumentException("Failed to create JSONArray from Array: $obj, with reason: ${e.message}")
+            }
+            is String -> {
+                try {
+                    JSONObject(obj)  // Attempt to parse as JSONObject first.
+                } catch (e: JSONException) {
+                    try {
+                        JSONArray(obj)  // Attempt to parse as JSONArray if JSONObject fails.
+                    } catch (e: JSONException) {
+                        throw IllegalArgumentException("Failed to convert to JSON representation: Invalid JSON string '$obj'")
+                    }
+                }
+            }
+            else -> IllegalArgumentException("Failed to convert to JSON representation: $obj, with reason: Unsupported type ${obj.javaClass.kotlin}")
+        }
     }
     // endregion
 }
