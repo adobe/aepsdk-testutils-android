@@ -8,6 +8,7 @@
   OF ANY KIND, either express or implied. See the License for the specific language
   governing permissions and limitations under the License.
 */
+
 package com.adobe.marketing.mobile.util
 
 import com.adobe.marketing.mobile.util.JSONAsserts.assertEqual
@@ -138,7 +139,8 @@ class JSONAssertsParameterizedTests {
             @JvmStatic
             @Parameterized.Parameters(name = "{index}: test with expected={0}, actual={1}")
             fun data(): Collection<Any> {
-                return createJSONObjectWrappedParams("key",
+                return createJSONObjectWrappedParams(
+                    "key",
                     5 to 5,
                     5.0 to 5.0,
                     true to true,
@@ -203,7 +205,7 @@ class JSONAssertsParameterizedTests {
                     JSONArray(listOf(1, 2, 3)) to JSONArray(listOf(1, 2, 3, 4)),
                     JSONObject() to JSONObject(mapOf("k" to "v")),
                     JSONObject(mapOf("key1" to 1, "key2" to "a", "key3" to 1.0, "key4" to true)) to
-                            JSONObject(mapOf("key1" to 1, "key2" to "a", "key3" to 1.0, "key4" to true, "key5" to "extra"))
+                        JSONObject(mapOf("key1" to 1, "key2" to "a", "key3" to 1.0, "key4" to true, "key5" to "extra"))
                 )
             }
         }
@@ -365,7 +367,8 @@ class JSONAssertsParameterizedTests {
             @JvmStatic
             @Parameterized.Parameters(name = "{index}: test with key={0}, expected={1}, actual={2}")
             fun data(): Collection<Any> {
-                return createJSONObjectWrappedParams("key",
+                return createJSONObjectWrappedParams(
+                    "key",
                     1 to 2,
                     "a" to "b",
                     1.0 to 2.0,
