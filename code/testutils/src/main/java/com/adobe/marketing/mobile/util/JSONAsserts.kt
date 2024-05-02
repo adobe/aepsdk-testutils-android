@@ -588,7 +588,7 @@ object JSONAsserts {
             val intIndex = index.toInt()
             validationResult = validateJSON(
                 expected[intIndex],
-                actual[intIndex],
+                actual.opt(intIndex),
                 keyPath + intIndex,
                 nodeTree.getNextNode(index),
                 shouldAssert
@@ -601,7 +601,7 @@ object JSONAsserts {
             val actualIndex = availableWildcardActualIndexes.firstOrNull {
                 validateJSON(
                     expected[intIndex],
-                    actual[it.toInt()],
+                    actual.opt(it.toInt()),
                     keyPath + intIndex,
                     nodeTree.getNextNode(index),
                     shouldAssert = false
@@ -787,7 +787,7 @@ object JSONAsserts {
 
         for (index in 0 until actualValues.length()) {
             validationResult = validateActual(
-                actual = actualValues.get(index),
+                actual = actualValues.opt(index),
                 keyPath = keyPath.plus(index),
                 nodeTree = nodeTree.getNextNode(index)
             ) && validationResult
