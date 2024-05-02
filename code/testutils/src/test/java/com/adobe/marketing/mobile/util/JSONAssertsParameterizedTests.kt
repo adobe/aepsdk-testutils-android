@@ -20,14 +20,31 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
 import org.junit.runners.Suite
+import kotlin.test.assertFailsWith
 
+interface TestParams {
+    val expected: Any
+    val actual: Any
+}
+
+data class PlainParams(override val expected: Any, override val actual: Any) : TestParams
+
+data class JSONArrayWrappedParams(private val expectedVal: Any, private val actualVal: Any?) : TestParams {
+    override val expected: JSONArray = JSONArray().put(expectedVal)
+    override val actual: JSONArray = JSONArray().put(actualVal)
+}
+
+data class JSONObjectWrappedParams(val keyName: String, private val expectedVal: Any, private val actualVal: Any?) : TestParams {
+    override val expected: JSONObject = JSONObject().put(keyName, expectedVal)
+    override val actual: JSONObject = JSONObject().put(keyName, actualVal)
+}
 
 @RunWith(Suite::class)
 @Suite.SuiteClasses(
-    JSONAssertsParameterizedTests.ValueMatchingTest::class,
-    JSONAssertsParameterizedTests.TypeMatchingTest::class,
-    JSONAssertsParameterizedTests.FlexibleCollectionMatchingTest::class,
-    JSONAssertsParameterizedTests.FailureTests::class,
+    JSONAssertsParameterizedTests.ValueValidationTests::class,
+    JSONAssertsParameterizedTests.TypeValidationTests::class,
+    JSONAssertsParameterizedTests.ExtensibleCollectionValidationTests::class,
+    JSONAssertsParameterizedTests.TypeValidationFailureTests::class,
     JSONAssertsParameterizedTests.SpecialKeyTest::class,
     JSONAssertsParameterizedTests.AlternatePathValueDictionaryTest::class,
     JSONAssertsParameterizedTests.AlternatePathValueArrayTest::class,
@@ -38,52 +55,127 @@ import org.junit.runners.Suite
     JSONAssertsParameterizedTests.ExpectedDictionaryLargerTest::class
 )
 class JSONAssertsParameterizedTests {
+    companion object {
+        fun createPlainParams(vararg pairs: Pair<Any, Any>): List<TestParams> {
+            return pairs.map { (expected, actual) -> PlainParams(expected, actual) }
+        }
+
+        fun createJSONArrayWrappedParams(vararg pairs: Pair<Any, Any?>): List<TestParams> {
+            return pairs.map { (expected, actual) -> JSONArrayWrappedParams(expected, actual) }
+        }
+
+        fun createJSONObjectWrappedParams(keyName: String, vararg pairs: Pair<Any, Any?>): List<TestParams> {
+            return pairs.map { (expected, actual) -> JSONObjectWrappedParams(keyName, expected, actual) }
+        }
+    }
+
+    /**
+     * Validates that [JSONArray]s and [JSONObject]s compare correctly, including nested structures.
+     */
     @RunWith(Parameterized::class)
-    class ValueMatchingTest(private val expected: Any, private val actual: Any) {
+    class ValueValidationTests(private val params: TestParams) {
         companion object {
             @JvmStatic
             @Parameterized.Parameters(name = "{index}: test with expected={0}, actual={1}")
-            fun data(): Collection<Array<Any>> {
-                return listOf(
-                    Array(2) { 5 }, // Int
-                    Array(2) { 5.0 }, // Double
-                    Array(2) { true }, // Boolean
-                    Array(2) { "a" }, // String
-                    Array(2) { "안녕하세요" }, // Non-Latin String
-                    Array(2) { JSONArray() },
-                    Array(2) { JSONArray("""[[[]]]""") }, // Nested arrays
-                    Array(2) { JSONObject() },
-                    Array(2) { JSONObject.NULL },
-                    Array(2) { JSONObject("""{ "key1": 1 }""") }, // Key value pair
-                    Array(2) { JSONObject("""{ "key1": { "key2": {} } }""") }, // Nested objects
+            fun data(): Collection<Any> {
+                return createPlainParams(
+                    JSONArray() to JSONArray(), // Empty array
+                    JSONArray("[[[]]]") to JSONArray("[[[]]]"), // Nested arrays
+                    JSONObject() to JSONObject(), // Empty dictionary
+                    JSONObject("""{ "key1": 1 }""") to JSONObject("""{ "key1": 1 }"""), // Simple key value pair
+                    JSONObject("""{ "key1": { "key2": {} } }""") to JSONObject("""{ "key1": { "key2": {} } }""") // Nested objects
                 )
             }
         }
 
         @Test
         fun `should match basic values`() {
-            assertEqual(expected, actual)
-            assertExactMatch(expected, actual)
-            assertTypeMatch(expected, actual)
+            assertEqual(params.expected, params.actual)
+            assertExactMatch(params.expected, params.actual)
+            assertTypeMatch(params.expected, params.actual)
+        }
+    }
+
+    /**
+     * Validates that various value types inside a [JSONArray] compare correctly, including nested structures.
+     */
+    @RunWith(Parameterized::class)
+    class ValueValidationArrayTests(private val params: TestParams) {
+        companion object {
+            @JvmStatic
+            @Parameterized.Parameters(name = "{index}: test with expected={0}, actual={1}")
+            fun data(): Collection<Any> {
+                return createJSONArrayWrappedParams(
+                    5 to 5,
+                    5.0 to 5.0,
+                    true to true,
+                    "a" to "a",
+                    "안녕하세요" to "안녕하세요",
+                    JSONObject.NULL to JSONObject.NULL,
+                    JSONArray() to JSONArray(),
+                    JSONArray("[[[]]]") to JSONArray("[[[]]]"),
+                    JSONObject() to JSONObject(),
+                    JSONObject("""{ "key1": 1 }""") to JSONObject("""{ "key1": 1 }"""),
+                    JSONObject("""{ "key1": { "key2": {} } }""") to JSONObject("""{ "key1": { "key2": {} } }""")
+                )
+            }
+        }
+
+        @Test
+        fun `should match basic values`() {
+            assertEqual(params.expected, params.actual)
+            assertExactMatch(params.expected, params.actual)
+            assertTypeMatch(params.expected, params.actual)
+        }
+    }
+
+    /**
+     * Validates that various value types inside a [JSONObject] compare correctly, including nested structures.
+     */
+    @RunWith(Parameterized::class)
+    class ValueValidationDictionaryTests(private val params: TestParams) {
+        companion object {
+            @JvmStatic
+            @Parameterized.Parameters(name = "{index}: test with expected={0}, actual={1}")
+            fun data(): Collection<Any> {
+                return createJSONObjectWrappedParams("key",
+                    5 to 5,
+                    5.0 to 5.0,
+                    true to true,
+                    "a" to "a",
+                    "안녕하세요" to "안녕하세요",
+                    JSONObject.NULL to JSONObject.NULL,
+                    JSONArray() to JSONArray(),
+                    JSONArray("[[[]]]") to JSONArray("[[[]]]"),
+                    JSONObject() to JSONObject(),
+                    JSONObject("""{ "key1": 1 }""") to JSONObject("""{ "key1": 1 }"""),
+                    JSONObject("""{ "key1": { "key2": {} } }""") to JSONObject("""{ "key1": { "key2": {} } }""")
+                )
+            }
+        }
+
+        @Test
+        fun `should match basic values`() {
+            assertEqual(params.expected, params.actual)
+            assertExactMatch(params.expected, params.actual)
+            assertTypeMatch(params.expected, params.actual)
         }
     }
 
     @RunWith(Parameterized::class)
-    class TypeMatchingTest(private val expected: Any, private val actual: Any) {
+    class TypeValidationTests(private val params: TestParams) {
         companion object {
             @JvmStatic
             @Parameterized.Parameters(name = "{index}: test with expected={0}, actual={1}")
-            fun data(): Collection<Array<Any>> {
-                return listOf(
-                    arrayOf(5, 10), // Int
-                    arrayOf(5.0, 10.0), // Double
-                    arrayOf(true, false), // Boolean
-                    arrayOf("a", "b"), // String
-                    arrayOf("안", "안녕하세요"), // Non-Latin String
-                    arrayOf(JSONObject("""{ "key1": 1 }"""),
-                            JSONObject("""{ "key1": 2 }""")), // Key value pair
-                    arrayOf(JSONObject("""{ "key1": { "key2": "a" } }"""),
-                            JSONObject("""{ "key1": { "key2": "b", "key3": 3 } }""")), // Nested partial by type
+            fun data(): Collection<Any> {
+                return createJSONArrayWrappedParams(
+                    5 to 10, // Int
+                    5.0 to 10.0, // Double
+                    true to false, // Boolean
+                    "a" to "b", // String
+                    "안" to "안녕하세요", // Non-Latin String
+                    JSONObject("""{ "key1": 1 }""") to JSONObject("""{ "key1": 2 }"""), // Key value pair
+                    JSONObject("""{ "key1": { "key2": "a" } }""") to JSONObject("""{ "key1": { "key2": "b", "key3": 3 } }""") // Nested partial by type
                 )
             }
         }
@@ -91,351 +183,299 @@ class JSONAssertsParameterizedTests {
         @Test
         fun `should match only by type for values of the same type`() {
             Assert.assertThrows(AssertionError::class.java) {
-                assertEqual(expected, actual)
+                assertEqual(params.expected, params.actual)
             }
             Assert.assertThrows(AssertionError::class.java) {
-                assertExactMatch(expected, actual)
+                assertExactMatch(params.expected, params.actual)
             }
-            assertTypeMatch(expected, actual)
+            assertTypeMatch(params.expected, params.actual)
         }
     }
 
     @RunWith(Parameterized::class)
-    class FlexibleCollectionMatchingTest(private val expected: Any, private val actual: Any) {
+    class ExtensibleCollectionValidationTests(private val params: TestParams) {
         companion object {
             @JvmStatic
             @Parameterized.Parameters(name = "{index}: test with expected={0}, actual={1}")
-            fun data(): Collection<Array<Any>> {
-                return listOf(
-                    arrayOf(JSONArray(), JSONArray(listOf(1))),
-                    arrayOf(JSONArray(listOf(1,2,3)), JSONArray(listOf(1,2,3,4))),
-                    arrayOf(JSONObject(), JSONObject(mapOf("k" to "v"))),
-                    arrayOf(JSONObject(mapOf("key1" to 1, "key2" to "a", "key3" to 1.0, "key4" to true)),
-                            JSONObject(mapOf("key1" to 1, "key2" to "a", "key3" to 1.0, "key4" to true, "key5" to "extra"))),
+            fun data(): Collection<Any> {
+                return createPlainParams(
+                    JSONArray() to JSONArray(listOf(1)),
+                    JSONArray(listOf(1, 2, 3)) to JSONArray(listOf(1, 2, 3, 4)),
+                    JSONObject() to JSONObject(mapOf("k" to "v")),
+                    JSONObject(mapOf("key1" to 1, "key2" to "a", "key3" to 1.0, "key4" to true)) to
+                            JSONObject(mapOf("key1" to 1, "key2" to "a", "key3" to 1.0, "key4" to true, "key5" to "extra"))
                 )
             }
         }
 
         @Test
         fun `should pass flexible matching when expected is a subset`() {
-            Assert.assertThrows(AssertionError::class.java) {
-                assertEqual(expected, actual)
+            assertFailsWith<AssertionError>("Validation should fail when collection sizes are different.") {
+                assertEqual(params.expected, params.actual)
             }
-            assertExactMatch(expected, actual)
-            assertTypeMatch(expected, actual)
+            assertExactMatch(params.expected, params.actual)
+            assertTypeMatch(params.expected, params.actual)
         }
     }
 
     @RunWith(Parameterized::class)
-    class FailureTests(private val expected: Any, private val actual: Any?) {
+    class TypeValidationFailureTests(private val params: TestParams) {
         companion object {
             @JvmStatic
             @Parameterized.Parameters(name = "{index}: test with expected={0}, actual={1}")
-            fun data(): Collection<Array<Any?>> {
-                return listOf(
-                    // All unique 2 element combinations
-                    arrayOf(1, 2.0), // [0]
-                    arrayOf(1, "a"),
-                    arrayOf(1, true),
-                    arrayOf(1, JSONObject()),
-                    arrayOf(1, JSONArray()),
-                    arrayOf(1, JSONObject.NULL), // [5]
-                    arrayOf(1, null),
-                    arrayOf(2.0, "a"),
-                    arrayOf(2.0, true),
-                    arrayOf(2.0, JSONObject()),
-                    arrayOf(2.0, JSONArray()), // [10]
-                    arrayOf(2.0, JSONObject.NULL),
-                    arrayOf(2.0, null),
-                    arrayOf("a", true),
-                    arrayOf("a", JSONObject()),
-                    arrayOf("a", JSONArray()), // [15]
-                    arrayOf("a", JSONObject.NULL),
-                    arrayOf("a", null),
-                    arrayOf(true, JSONObject()),
-                    arrayOf(true, JSONArray()),
-                    arrayOf(true, JSONObject.NULL), // [20]
-                    arrayOf(true, null),
-                    arrayOf(JSONObject(), JSONArray()),
-                    arrayOf(JSONObject(), JSONObject.NULL),
-                    arrayOf(JSONObject(), null),
-                    arrayOf(JSONArray(), JSONObject.NULL), // [25]
-                    arrayOf(JSONArray(), null),
-                    // Key name mismatch
-                    arrayOf(JSONObject("""{ "key1": 1 }"""),
-                            JSONObject("""{ "key2": 1 }""")),
+            fun data(): Collection<Any> {
+                return createJSONArrayWrappedParams(
+                    1 to 2.0,
+                    1 to "a",
+                    1 to true,
+                    1 to JSONObject(),
+                    1 to JSONArray(),
+                    1 to JSONObject.NULL,
+                    1 to null,
+                    2.0 to "a",
+                    2.0 to true,
+                    2.0 to JSONObject(),
+                    2.0 to JSONArray(),
+                    2.0 to JSONObject.NULL,
+                    2.0 to null,
+                    "a" to true,
+                    "a" to JSONObject(),
+                    "a" to JSONArray(),
+                    "a" to JSONObject.NULL,
+                    "a" to null,
+                    true to JSONObject(),
+                    true to JSONArray(),
+                    true to JSONObject.NULL,
+                    true to null,
+                    JSONObject() to JSONArray(),
+                    JSONObject() to JSONObject.NULL,
+                    JSONObject() to null,
+                    JSONArray() to JSONObject.NULL,
+                    JSONArray() to null,
+                    JSONObject("""{ "key1": 1 }""") to JSONObject("""{ "key2": 1 }""")
                 )
             }
         }
 
         @Test
-        fun `should error when not matching`() {
-            Assert.assertThrows(AssertionError::class.java) {
-                assertEqual(expected, actual)
+        fun `should detect type mismatch or nullability issues`() {
+            assertFailsWith<AssertionError>("Validation should fail when value types mismatch.") {
+                assertEqual(params.expected, params.actual)
             }
-            Assert.assertThrows(AssertionError::class.java) {
-                assertExactMatch(expected, actual)
+            assertFailsWith<AssertionError>("Validation should fail when value types mismatch.") {
+                assertTypeMatch(params.expected, params.actual)
             }
-            Assert.assertThrows(AssertionError::class.java) {
-                assertTypeMatch(expected, actual)
+            assertFailsWith<AssertionError>("Validation should fail when value types mismatch.") {
+                assertExactMatch(params.expected, params.actual)
             }
         }
     }
 
     @RunWith(Parameterized::class)
-    class SpecialKeyTest(expectedJSONString: String, actualJSONString: String) {
-        private val expected: JSONObject = JSONObject(expectedJSONString)
-        private val actual: JSONObject = JSONObject(actualJSONString)
-
+    class SpecialKeyTest(private val params: TestParams) {
         companion object {
             @JvmStatic
             @Parameterized.Parameters(name = "{index}: test with expected={0}, actual={1}")
-            fun data(): Collection<Array<String>> {
-                return listOf(
-                    Array(2) {"""{ "": 1 }"""}, // Empty string
-                    Array(2) {"""{ "\\": 1 }"""}, // Backslash
-                    Array(2) {"""{ "\\\\": 1 }"""}, // Double backslash
-                    Array(2) {"""{ ".": 1 }"""}, // Dot
-                    Array(2) {"""{ "k.1.2.3": 1 }"""}, // Dot in key
-                    Array(2) {"""{ "k.": 1 }"""}, // Dot at the end of key
-                    Array(2) {"""{ "\"": 1 }"""}, // Escaped double quote
-                    Array(2) {"""{ "'": 1 }"""}, // Single quote
-                    Array(2) {"""{ "\'": 1 }"""}, // Escaped single quote
-                    Array(2) {"""{ "key with space": 1 }"""}, // Space in key
-                    Array(2) {"""{ "\n": 1 }"""}, // Control character
-                    Array(2) {"""{ "key \t \n newline": 1 }"""}, // Control characters in key
-                    Array(2) {"""{ "안녕하세요": 1 }"""}, // Non-Latin characters
+            fun data(): Collection<Any> {
+                return createPlainParams(
+                    JSONObject("""{ "": 1 }""") to JSONObject("""{ "": 1 }"""),
+                    JSONObject("""{ "\\": 1 }""") to JSONObject("""{ "\\": 1 }"""),
+                    JSONObject("""{ "\\\\": 1 }""") to JSONObject("""{ "\\\\": 1 }"""),
+                    JSONObject("""{ ".": 1 }""") to JSONObject("""{ ".": 1 }"""),
+                    JSONObject("""{ "k.1.2.3": 1 }""") to JSONObject("""{ "k.1.2.3": 1 }"""),
+                    JSONObject("""{ "k.": 1 }""") to JSONObject("""{ "k.": 1 }"""),
+                    JSONObject("""{ "\"": 1 }""") to JSONObject("""{ "\"": 1 }"""),
+                    JSONObject("""{ "'": 1 }""") to JSONObject("""{ "'": 1 }"""),
+                    JSONObject("""{ "\'": 1 }""") to JSONObject("""{ "\'": 1 }"""),
+                    JSONObject("""{ "key with space": 1 }""") to JSONObject("""{ "key with space": 1 }"""),
+                    JSONObject("""{ "\n": 1 }""") to JSONObject("""{ "\n": 1 }"""),
+                    JSONObject("""{ "key \t \n newline": 1 }""") to JSONObject("""{ "key \t \n newline": 1 }"""),
+                    JSONObject("""{ "안녕하세요": 1 }""") to JSONObject("""{ "안녕하세요": 1 }""")
                 )
             }
         }
 
         @Test
-        fun `should match special key JSONs`() {
-            assertEqual(expected, actual)
-            assertExactMatch(expected, actual)
-            assertTypeMatch(expected, actual)
+        fun `should handle special characters in JSON keys correctly`() {
+            assertEqual(params.expected, params.actual)
+            assertExactMatch(params.expected, params.actual)
+            assertTypeMatch(params.expected, params.actual)
         }
     }
 
     @RunWith(Parameterized::class)
-    class AlternatePathValueDictionaryTest(private val keypath: String, expectedJSONString: String, actualJSONString: String) {
-        private val expected: JSONObject = JSONObject(expectedJSONString)
-        private val actual: JSONObject = JSONObject(actualJSONString)
-
+    class AlternatePathValueDictionaryTest(private val params: TestParams) {
         companion object {
-            private fun testCase(key: String, expected: Any?, actual: Any?, transform: (Any?) -> String): Array<String> {
-                return arrayOf(key, transform(expected), transform(actual))
-            }
-
             @JvmStatic
             @Parameterized.Parameters(name = "{index}: test with key={0}, expected={1}, actual={2}")
-            fun data(): Collection<Array<String>> {
-                return listOf(
-                    // Validating key value pair format
-                    testCase("key1", 1, 1) { """{ "key1": $it }""" },
-                    testCase("key1", 2.0, 2.0) { """{ "key1": $it }""" },
-                    testCase("key1", "a", "a") { """{ "key1": $it }""" },
-                    testCase("key1", true, true) { """{ "key1": $it }""" },
-                    testCase("key1", JSONObject(), JSONObject()) { """{ "key1": $it }""" },
-                    testCase("key1", JSONArray(), JSONArray()) { """{ "key1": $it }""" },
-                    testCase("key1", JSONObject.NULL, JSONObject.NULL) { """{ "key1": $it }""" },
-                    testCase("key1", null, null) { """{ "key1": $it }""" },
+            fun data(): Collection<Any> {
+                return createPlainParams(
+                    JSONObject("""{ "key1": 1 }""") to JSONObject("""{ "key1": 1 }"""),
+                    JSONObject("""{ "key1": 2.0 }""") to JSONObject("""{ "key1": 2.0 }"""),
+                    JSONObject("""{ "key1": "a" }""") to JSONObject("""{ "key1": "a" }"""),
+                    JSONObject("""{ "key1": true }""") to JSONObject("""{ "key1": true }"""),
+                    JSONObject("""{ "key1": {} }""") to JSONObject("""{ "key1": {} }"""),
+                    JSONObject("""{ "key1": [] }""") to JSONObject("""{ "key1": [] }"""),
+                    JSONObject("""{ "key1": null }""") to JSONObject("""{ "key1": null }""")
                 )
             }
         }
 
         @Test
         fun `should not fail because of alternate path`() {
-            assertExactMatch(expected, actual, typeMatchPaths = listOf(keypath))
-            assertTypeMatch(expected, actual, exactMatchPaths = listOf(keypath))
+            assertExactMatch(params.expected, params.actual, ValueTypeMatch("key1"))
+            assertTypeMatch(params.expected, params.actual, ValueExactMatch("key1"))
         }
     }
 
     @RunWith(Parameterized::class)
-    class AlternatePathValueArrayTest(private val keypath: String, expectedJSONString: String, actualJSONString: String) {
-        private val expected: JSONArray = JSONArray(expectedJSONString)
-        private val actual: JSONArray = JSONArray(actualJSONString)
-
+    class AlternatePathValueArrayTest(private val params: TestParams) {
         companion object {
-            private fun testCase(key: String, expected: Any?, actual: Any?, transform: (Any?) -> String): Array<String> {
-                return arrayOf(key, transform(expected), transform(actual))
-            }
-
             @JvmStatic
             @Parameterized.Parameters(name = "{index}: test with key={0}, expected={1}, actual={2}")
-            fun data(): Collection<Array<String>> {
-                return listOf(
-                    // Validating array format with specific index alternate mode path
-                    testCase("[0]", 1, 1) { """[$it]""" },
-                    testCase("[0]", 2.0, 2.0) { """[$it]""" },
-                    testCase("[0]", "a", "a") { """[$it]""" },
-                    testCase("[0]", true, true) { """[$it]""" },
-                    testCase("[0]", JSONObject(), JSONObject()) { """[$it]""" },
-                    testCase("[0]", JSONArray(), JSONArray()) { """[$it]""" },
-                    testCase("[0]", JSONObject.NULL, JSONObject.NULL) { """[$it]""" },
-                    testCase("[0]", null, null) { """[$it]""" },
-                    // Validating array format with wildcard alternate mode path
-                    testCase("[*]", 1, 1) { """[$it]""" },
-                    testCase("[*]", 2.0, 2.0) { """[$it]""" },
-                    testCase("[*]", "a", "a") { """[$it]""" },
-                    testCase("[*]", true, true) { """[$it]""" },
-                    testCase("[*]", JSONObject(), JSONObject()) { """[$it]""" },
-                    testCase("[*]", JSONArray(), JSONArray()) { """[$it]""" },
-                    testCase("[*]", JSONObject.NULL, JSONObject.NULL) { """[$it]""" },
-                    testCase("[*]", null, null) { """[$it]""" },
+            fun data(): Collection<Any> {
+                return createPlainParams(
+                    JSONArray("[1]") to JSONArray("[1]"),
+                    JSONArray("[2.0]") to JSONArray("[2.0]"),
+                    JSONArray("[\"a\"]") to JSONArray("[\"a\"]"),
+                    JSONArray("[true]") to JSONArray("[true]"),
+                    JSONArray("[{}]") to JSONArray("[{}]"),
+                    JSONArray("[[]]") to JSONArray("[[]]"),
+                    JSONArray("[null]") to JSONArray("[null]")
                 )
             }
         }
 
         @Test
         fun `should not fail because of alternate path`() {
-            assertExactMatch(expected, actual, typeMatchPaths = listOf(keypath))
-            assertTypeMatch(expected, actual, exactMatchPaths = listOf(keypath))
+            assertExactMatch(params.expected, params.actual, ValueTypeMatch("[0]"))
+            assertTypeMatch(params.expected, params.actual, ValueExactMatch("[0]"))
+
+            assertExactMatch(params.expected, params.actual, ValueTypeMatch("[*]"))
+            assertTypeMatch(params.expected, params.actual, ValueExactMatch("[*]"))
+
+            assertExactMatch(params.expected, params.actual, typeMatchPaths = listOf("[*]"))
+            assertTypeMatch(params.expected, params.actual, exactMatchPaths = listOf("[*]"))
         }
     }
 
     @RunWith(Parameterized::class)
-    class AlternatePathTypeDictionaryTest(private val keypath: String, expectedJSONString: String, actualJSONString: String) {
-        private val expected: JSONObject = JSONObject(expectedJSONString)
-        private val actual: JSONObject = JSONObject(actualJSONString)
-
+    class AlternatePathTypeDictionaryTest(private val params: TestParams) {
         companion object {
-            private fun testCase(path: String, expected: Any, actual: Any, format: (Any) -> String): Array<String> {
-                return arrayOf(path, format(expected), format(actual))
-            }
-
             @JvmStatic
             @Parameterized.Parameters(name = "{index}: test with key={0}, expected={1}, actual={2}")
-            fun data(): Collection<Array<String>> {
-                return listOf(
-                    // For each pair of same type different value cases, compare when set as the value in a key value pair
-                    testCase("key1", 1, 2) { """{ "key1": $it }""" },
-                    testCase("key1", "a", "b") { """{ "key1": $it }""" },
-                    testCase("key1", 1.0, 2.0) { """{ "key1": $it }""" },
-                    testCase("key1", true, false) { """{ "key1": $it }""" },
+            fun data(): Collection<Any> {
+                return createJSONObjectWrappedParams("key",
+                    1 to 2,
+                    "a" to "b",
+                    1.0 to 2.0,
+                    true to false
                 )
             }
         }
 
         @Test
         fun `should apply alternate path to matching logic`() {
-            assertExactMatch(expected, actual, typeMatchPaths = listOf(keypath))
-            Assert.assertThrows(AssertionError::class.java) {
-                assertTypeMatch(expected, actual, exactMatchPaths = listOf(keypath))
+            assertExactMatch(params.expected, params.actual, ValueTypeMatch("key"))
+            assertFailsWith<AssertionError>("Validation should fail when path option is not satisfied.") {
+                assertTypeMatch(params.expected, params.actual, ValueExactMatch("key"))
             }
         }
     }
 
     @RunWith(Parameterized::class)
-    class AlternatePathTypeArrayTest(private val keypath: String, expectedJSONString: String, actualJSONString: String) {
-        private val expected: JSONArray = JSONArray(expectedJSONString)
-        private val actual: JSONArray = JSONArray(actualJSONString)
-
+    class AlternatePathTypeArrayTest(private val params: TestParams) {
         companion object {
-            private fun testCase(path: String, expected: Any, actual: Any, format: (Any) -> String): Array<String> {
-                return arrayOf(path, format(expected), format(actual))
-            }
-
             @JvmStatic
             @Parameterized.Parameters(name = "{index}: test with key={0}, expected={1}, actual={2}")
-            fun data(): Collection<Array<String>> {
-                return listOf(
-                    // Compare all pairs when set as the value in an array using a specific index alternate path
-                    testCase("[0]", 1, 2) { """[$it]""" },
-                    testCase("[0]", "a", "b") { """[$it]""" },
-                    testCase("[0]", 1.0, 2.0) { """[$it]""" },
-                    testCase("[0]", true, false) { """[$it]""" },
-                    // Compare all pairs when set as the value in an array using a wildcard alternate path
-                    testCase("[*]", 1, 2) { """[$it]""" },
-                    testCase("[*]", "a", "b") { """[$it]""" },
-                    testCase("[*]", 1.0, 2.0) { """[$it]""" },
-                    testCase("[*]", true, false) { """[$it]""" }
+            fun data(): Collection<Any> {
+                return createJSONArrayWrappedParams(
+                    1 to 2,
+                    "a" to "b",
+                    1.0 to 2.0,
+                    true to false
                 )
             }
         }
 
         @Test
         fun `should apply alternate path to matching logic`() {
-            assertExactMatch(expected, actual, typeMatchPaths = listOf(keypath))
-            Assert.assertThrows(AssertionError::class.java) {
-                assertTypeMatch(expected, actual, exactMatchPaths = listOf(keypath))
+            assertExactMatch(params.expected, params.actual, ValueTypeMatch("[0]"))
+            assertFailsWith<AssertionError>("Validation should fail when mismatched types are not equivalent under alternate paths.") {
+                assertTypeMatch(params.expected, params.actual, ValueExactMatch("[0]"))
+            }
+
+            assertExactMatch(params.expected, params.actual, typeMatchPaths = listOf("[*]"))
+            assertFailsWith<AssertionError>("Validation should fail when mismatched types are not equivalent under alternate paths.") {
+                assertTypeMatch(params.expected, params.actual, exactMatchPaths = listOf("[*]"))
             }
         }
     }
 
     @RunWith(Parameterized::class)
-    class SpecialKeyAlternatePathTest(private val keypath: String, expectedJSONString: String, actualJSONString: String) {
-        private val expected: JSONObject = JSONObject(expectedJSONString)
-        private val actual: JSONObject = JSONObject(actualJSONString)
-
+    class SpecialKeyAlternatePathTest(private val keyPath: String, private val params: TestParams) {
         companion object {
-            private fun testCase(path: String, expected: Any, actual: Any, format: (Any) -> String): Array<String> {
-                return arrayOf(path, format(expected), format(actual))
-            }
-
             @JvmStatic
             @Parameterized.Parameters(name = "{index}: test with key={0}, expected={1}, actual={2}")
-            fun data(): Collection<Array<String>> {
+            fun data(): Collection<Any> {
                 return listOf(
-                    testCase("key1.",1,2) { """{ "key1": { "": $it } }""" }, // Nested empty string
-                    testCase("key1..key3",1,2) { """{ "key1": { "": { "key3": $it } } }""" }, // Non-empty strings surrounding empty string
-                    testCase(".key2.",1,2) { """{ "": { "key2": { "": $it } } }""" }, // Empty strings surrounding non-empty string
-                    testCase("\\\\.",1,2) { """{ "\\.": $it }""" }, // Backslash before dot
-                    testCase("",1,2) { """{ "": $it }""" }, // Empty key
-                    testCase(".",1,2) { """{ "": { "": $it } }""" }, // Nested empty keys
-                    testCase("...",1,2) { """{ "": { "": { "": { "": $it } } } }""" }, // Multiple nested empty keys
-                    testCase("\\",1,2) { """{ "\\": $it }""" }, // Single backslash
-                    testCase("\\\\",1,2) { """{ "\\\\": $it }""" }, // Double backslashes
-                    testCase("\\.",1,2) { """{ ".": $it }""" }, // Escaped dot
-                    testCase("k\\.1\\.2\\.3",1,2) { """{ "k.1.2.3": $it }""" }, // Dots in key
-                    testCase("k\\.",1,2) { """{ "k.": $it }""" }, // Dot at the end of the key
-                    testCase("\"",1,2) { """{ "\"": $it }""" }, // Escaped double quote
-                    testCase("\'",1,2) { """{ "\'": $it }""" }, // Escaped single quote
-                    testCase("'",1,2) { """{ "'": $it }""" }, // Single quote
-                    testCase("key with space",1,2) { """{ "key with space": $it }""" }, // Space in key
-                    testCase("\n",1,2) { """{ "\n": $it }""" }, // Control character
-                    testCase("key \t \n newline",1,2) { """{ "key \t \n newline": $it }""" },  // Control characters in key
-                    testCase("안녕하세요",1,2) { """{ "안녕하세요": $it }""" }, // Non-Latin characters
-                    testCase("a]",1,2) { """{ "a]": $it }""" }, // Closing square bracket in key
-                    testCase("a[",1,2) { """{ "a[": $it }""" }, // Opening square bracket in key
-                    testCase("a[1]b",1,2) { """{ "a[1]b": $it }""" }, // Array style access in key
-                    testCase("key1\\[0\\]",1,2) { """{ "key1[0]": $it }""" }, // Array style access at the end of key
-                    testCase("\\[1\\][0]",1,2) { """{ "[1]": [$it] }""" }, // Array style key then actual array style access
-                    testCase("\\[1\\\\][0]",1,2) { """{ "[1\\]": [$it] }""" } // Incomplete array style access then actual array style access
-                )
+                    "key1." to (JSONObject("""{ "key1": { "": 1 } }""") to JSONObject("""{ "key1": { "": 2 } }""")),
+                    "key1..key3" to (JSONObject("""{ "key1": { "": { "key3": 1 } } }""") to JSONObject("""{ "key1": { "": { "key3": 2 } } }""")),
+                    ".key2." to (JSONObject("""{ "": { "key2": { "": 1 } } }""") to JSONObject("""{ "": { "key2": { "": 2 } } }""")),
+                    "\\\\." to (JSONObject("""{ "\\.": 1 }""") to JSONObject("""{ "\\.": 2 }""")),
+                    "" to (JSONObject("""{ "": 1 }""") to JSONObject("""{ "": 2 }""")),
+                    "." to (JSONObject("""{ "": { "": 1 } }""") to JSONObject("""{ "": { "": 2 } }""")),
+                    "..." to (JSONObject("""{ "": { "": { "": { "": 1 } } } }""") to JSONObject("""{ "": { "": { "": { "": 2 } } } }""")),
+                    "\\" to (JSONObject("""{ "\\": 1 }""") to JSONObject("""{ "\\": 2 }""")),
+                    "\\\\" to (JSONObject("""{ "\\\\": 1 }""") to JSONObject("""{ "\\\\": 2 }""")),
+                    "\\." to (JSONObject("""{ ".": 1 }""") to JSONObject("""{ ".": 2 }""")),
+                    "k\\.1\\.2\\.3" to (JSONObject("""{ "k.1.2.3": 1 }""") to JSONObject("""{ "k.1.2.3": 2 }""")),
+                    "k\\." to (JSONObject("""{ "k.": 1 }""") to JSONObject("""{ "k.": 2 }""")),
+                    "\"" to (JSONObject("""{ "\"": 1 }""") to JSONObject("""{ "\"": 2 }""")),
+                    "\'" to (JSONObject("""{ "\'": 1 }""") to JSONObject("""{ "\'": 2 }""")),
+                    "'" to (JSONObject("""{ "'": 1 }""") to JSONObject("""{ "'": 2 }""")),
+                    "key with space" to (JSONObject("""{ "key with space": 1 }""") to JSONObject("""{ "key with space": 2 }""")),
+                    "\n" to (JSONObject("""{ "\n": 1 }""") to JSONObject("""{ "\n": 2 }""")),
+                    "key \t \n newline" to (JSONObject("""{ "key \t \n newline": 1 }""") to JSONObject("""{ "key \t \n newline": 2 }""")),
+                    "안녕하세요" to (JSONObject("""{ "안녕하세요": 1 }""") to JSONObject("""{ "안녕하세요": 2 }""")),
+                    "a]" to (JSONObject("""{ "a]": 1 }""") to JSONObject("""{ "a]": 2 }""")),
+                    "a[" to (JSONObject("""{ "a[": 1 }""") to JSONObject("""{ "a[": 2 }""")),
+                    "a[1]b" to (JSONObject("""{ "a[1]b": 1 }""") to JSONObject("""{ "a[1]b": 2 }""")),
+                    "key1\\[0\\]" to (JSONObject("""{ "key1[0]": 1 }""") to JSONObject("""{ "key1[0]": 2 }""")),
+                    "\\[1\\][0]" to (JSONObject("""{ "[1]": [1] }""") to JSONObject("""{ "[1]": [2] }""")),
+                    "\\[1\\\\][0]" to (JSONObject("""{ "[1\\]": [1] }""") to JSONObject("""{ "[1\\]": [2] }"""))
+                ).map { (keyPath, pair) ->
+                    arrayOf(keyPath, PlainParams(pair.first, pair.second))
+                }
             }
         }
 
         @Test
         fun `should handle special keys in alternate paths`() {
-            assertExactMatch(expected, actual, typeMatchPaths = listOf(keypath))
-            Assert.assertThrows(AssertionError::class.java) {
-                assertTypeMatch(expected, actual, exactMatchPaths = listOf(keypath))
+            assertExactMatch(params.expected, params.actual, ValueTypeMatch(keyPath))
+            assertFailsWith<AssertionError>("Validation should fail when special key paths result in type mismatches.") {
+                assertTypeMatch(params.expected, params.actual, ValueExactMatch(keyPath))
             }
         }
     }
 
     @RunWith(Parameterized::class)
-    class ExpectedArrayLargerTest(private val alternateMatchPaths: List<String>) {
+    class ExpectedArrayLargerTest(private val keyPaths: List<String>, private val params: TestParams) {
         companion object {
             @JvmStatic
             @Parameterized.Parameters(name = "{index}: test with alternateMatchPaths={0}")
-            fun data(): Collection<Array<Any>> {
+            fun data(): Collection<Any> {
                 return listOf(
-                    arrayOf(emptyList<String>()),
-                    arrayOf(listOf("[0]")),
-                    arrayOf(listOf("[1]")),
-                    arrayOf(listOf("[0]", "[1]")),
-                    arrayOf(listOf("[*0]")),
-                    arrayOf(listOf("[*1]")),
-                    arrayOf(listOf("[*]"))
-                )
+                    listOf<String>() to (JSONArray("[1, 2]") to JSONArray("[1]")),
+                    listOf("[0]") to (JSONArray("[1, 2]") to JSONArray("[1]")),
+                    listOf("[1]") to (JSONArray("[1, 2]") to JSONArray("[1]")),
+                    listOf("[0]", "[1]") to (JSONArray("[1, 2]") to JSONArray("[1]")),
+                    listOf("[*]") to (JSONArray("[1, 2]") to JSONArray("[1]"))
+                ).map { (keyPaths, pair) ->
+                    arrayOf(keyPaths, PlainParams(pair.first, pair.second))
+                }
             }
         }
-
-        private val expected = JSONArray("""[1, 2]""")
-        private val actual = JSONArray("""[1]""")
-
 
         /**
          * Validates that a larger expected array compared to actual will throw errors
@@ -445,35 +485,34 @@ class JSONAssertsParameterizedTests {
          */
         @Test
         fun `should error on larger expected arrays`() {
-            Assert.assertThrows(AssertionError::class.java) {
-                assertEqual(expected, actual)
+            assertFailsWith<AssertionError>("Validation should fail when expected array is larger regardless of alternate paths.") {
+                assertEqual(params.expected, params.actual)
             }
-            Assert.assertThrows(AssertionError::class.java) {
-                assertExactMatch(expected, actual, typeMatchPaths = alternateMatchPaths)
+            assertFailsWith<AssertionError>("Validation should fail when exact matching is enforced with larger expected arrays.") {
+                assertExactMatch(params.expected, params.actual, ValueTypeMatch(keyPaths))
             }
-            Assert.assertThrows(AssertionError::class.java) {
-                assertTypeMatch(expected, actual, exactMatchPaths = alternateMatchPaths)
+            assertFailsWith<AssertionError>("Validation should fail on type matching with larger expected arrays.") {
+                assertTypeMatch(params.expected, params.actual, ValueExactMatch(keyPaths))
             }
         }
     }
 
     @RunWith(Parameterized::class)
-    class ExpectedDictionaryLargerTest(private val alternateMatchPaths: List<String>) {
+    class ExpectedDictionaryLargerTest(private val keyPaths: List<String>, private val params: TestParams) {
         companion object {
             @JvmStatic
             @Parameterized.Parameters(name = "{index}: test with alternateMatchPaths={0}")
-            fun data(): Collection<Array<Any>> {
+            fun data(): Collection<Any> {
                 return listOf(
-                    arrayOf(emptyList<String>()),
-                    arrayOf(listOf("key1")),
-                    arrayOf(listOf("key2")),
-                    arrayOf(listOf("key1", "key2")),
-                )
+                    emptyList<String>() to (JSONObject("""{ "key1": 1, "key2": 2 }""") to JSONObject("""{ "key1": 1}""")),
+                    listOf("key1") to (JSONObject("""{ "key1": 1, "key2": 2 }""") to JSONObject("""{ "key1": 1}""")),
+                    listOf("key2") to (JSONObject("""{ "key1": 1, "key2": 2 }""") to JSONObject("""{ "key1": 1}""")),
+                    listOf("key1", "key2") to (JSONObject("""{ "key1": 1, "key2": 2 }""") to JSONObject("""{ "key1": 1}""")),
+                ).map { (keyPaths, pair) ->
+                    arrayOf(keyPaths, PlainParams(pair.first, pair.second))
+                }
             }
         }
-
-        private val expected = JSONObject("""{ "key1": 1, "key2": 2 }""")
-        private val actual = JSONObject("""{ "key1": 1}""")
 
         /**
          * Validates that a larger expected dictionary compared to actual will throw errors
@@ -484,13 +523,13 @@ class JSONAssertsParameterizedTests {
         @Test
         fun `should error on larger expected maps`() {
             Assert.assertThrows(AssertionError::class.java) {
-                assertEqual(expected, actual)
+                assertEqual(params.expected, params.actual)
             }
             Assert.assertThrows(AssertionError::class.java) {
-                assertExactMatch(expected, actual, typeMatchPaths = alternateMatchPaths)
+                assertExactMatch(params.expected, params.actual, ValueTypeMatch(keyPaths))
             }
             Assert.assertThrows(AssertionError::class.java) {
-                assertTypeMatch(expected, actual, exactMatchPaths = alternateMatchPaths)
+                assertTypeMatch(params.expected, params.actual, ValueExactMatch(keyPaths))
             }
         }
     }
