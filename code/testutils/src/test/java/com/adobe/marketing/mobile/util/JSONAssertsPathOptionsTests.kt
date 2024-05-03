@@ -892,4 +892,204 @@ class JSONAssertsPathOptionsTests {
         assertExactMatch(expected, actual, CollectionEqualCount(isActive = false))
         assertTypeMatch(expected, actual, CollectionEqualCount(isActive = false))
     }
+
+    @Test
+    fun testCollectionEqualCount_WithDefaultInit_CorrectlyFails() {
+        val expected = "{}"
+        val actual = """
+        {
+          "key1": 1
+        }
+        """
+
+        assertFailsWith<AssertionError>("Validation should fail when collection counts are not equal") {
+            assertTypeMatch(expected, actual, CollectionEqualCount())
+        }
+    }
+
+    @Test
+    fun testKeyMustBeAbsent_WithDefaultInit_CorrectlyFails() {
+        val expected = "{}"
+        val actual = """
+        {
+          "key1": 1
+        }
+        """
+
+        assertFailsWith<AssertionError>("Validation should fail when key name is present") {
+            assertTypeMatch(expected, actual, KeyMustBeAbsent("key1"))
+        }
+    }
+
+    @Test
+    fun testKeyMustBeAbsent_WithInnerPath_CorrectlyFails() {
+        val expected = "{}"
+        val actual = """
+        {
+          "events": [
+            {
+              "request": {
+                "path": "something"
+              }
+            }
+          ],
+          "path": "top level"
+        }
+        """
+
+        assertFailsWith<AssertionError>("Validation should fail when key names not provided") {
+            assertTypeMatch(expected, actual, KeyMustBeAbsent("events[*].request.path"))
+        }
+    }
+
+    @Test
+    fun testKeyMustBeAbsent_WithSinglePath_Passes() {
+        val expected = "{}"
+        val actual = """
+        {
+            "key1": 1
+        }
+        """
+
+        assertExactMatch(expected, actual, KeyMustBeAbsent("key2"))
+    }
+
+    @Test
+    fun testKeyMustBeAbsent_WithMultipleKeys_Passes() {
+        val expected = "{}"
+        val actual = """
+        {
+            "key1": 1
+        }
+        """
+
+        assertExactMatch(expected, actual, KeyMustBeAbsent("key2", "key3"))
+    }
+
+    @Test
+    fun testKeyMustBeAbsent_Fails_WhenKeyPresent() {
+        val expected = "{}"
+        val actual = """
+        {
+            "key1": 1
+        }
+        """
+
+        assertFailsWith<AssertionError>("Validation should fail when key that must be absent is present in actual") {
+            assertExactMatch(expected, actual, KeyMustBeAbsent("key1"))
+        }
+    }
+
+    @Test
+    fun testKeyMustBeAbsent_worksWhenKeyInDifferentHierarchy() {
+        val expected = """
+        {
+          "key1": 1
+        }
+        """
+        val actual = """
+        {
+          "key1": 1,
+          "key2": {
+            "key3": 1
+          }
+        }
+        """
+
+        assertFailsWith<AssertionError>("Validation should fail when key that must be absent is present in actual") {
+            assertExactMatch(expected, actual, KeyMustBeAbsent("key2.key3"))
+        }
+    }
+
+    @Test
+    fun testValueExactMatch_WithDefaultPathsInit_CorrectlyFails() {
+        val expected = """
+        {
+            "key1": 1
+        }
+        """
+        val actual = """
+        {
+            "key1": 2
+        }
+        """
+
+        assertFailsWith<AssertionError>("Validation should fail when path option is not satisfied") {
+            assertTypeMatch(expected, actual, ValueExactMatch(scope = Subtree))
+        }
+    }
+
+    @Test
+    fun testValueTypeMatch_WithDefaultPathsInit_Passes() {
+        val expected = """
+        {
+            "key1": 1
+        }
+        """
+        val actual = """
+        {
+            "key1": 2
+        }
+        """
+
+        assertExactMatch(expected, actual, ValueTypeMatch(scope = Subtree))
+    }
+
+    @Test
+    fun testValueTypeMatch_SubtreeOption_Propagates() {
+        val expected = """
+        {
+          "key0-0": [
+            {
+              "key1-0": 1
+            }
+          ]
+        }
+        """
+        val actual = """
+        {
+          "key0-0": [
+            {
+              "key1-0": 2
+            }
+          ]
+        }
+        """
+
+        assertExactMatch(expected, actual, ValueTypeMatch("key0-0", scope = Subtree))
+    }
+
+    @Test
+    fun testValueTypeMatch_SingleNodeAndSubtreeOption() {
+        val expected = """
+        {
+          "key0-0": [
+            {
+              "key1-0": 1
+            }
+          ],
+          "key0-1": 1
+        }
+        """
+        val actual = """
+        {
+          "key0-0": [
+            {
+              "key1-0": 2
+            }
+          ],
+          "key0-1": 2
+        }
+        """
+
+        assertExactMatch(expected, actual, ValueTypeMatch("key0-1"), ValueTypeMatch("key0-0", scope = Subtree))
+    }
+
+    @Test
+    fun testValueExactMatch_WithDefaultInit_CorrectlyFails() {
+        val expected = "[1, 2]"
+        val actual = "[2, 1]"
+
+        assertExactMatch(expected, actual, AnyOrderMatch())
+    }
 }
