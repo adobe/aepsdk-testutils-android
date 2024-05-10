@@ -14,8 +14,11 @@ package com.adobe.marketing.mobile.util
 import com.adobe.marketing.mobile.services.HttpConnecting
 import com.adobe.marketing.mobile.services.HttpMethod
 import com.adobe.marketing.mobile.services.Log
+import com.adobe.marketing.mobile.services.NetworkRequest
 import com.adobe.marketing.mobile.services.TestableNetworkRequest
-import org.junit.Assert
+import org.junit.Assert.assertTrue
+import org.junit.Assert.assertEquals
+import org.junit.Assert.fail
 import java.util.concurrent.TimeUnit
 
 /**
@@ -25,229 +28,234 @@ import java.util.concurrent.TimeUnit
  * @see [RealNetworkService]
  */
 class NetworkRequestHelper {
-	private val sentTestableNetworkRequests: MutableMap<TestableNetworkRequest, MutableList<TestableNetworkRequest>>
-	private val networkResponses: MutableMap<TestableNetworkRequest, MutableList<HttpConnecting>>
-	private val expectedTestableNetworkRequests: MutableMap<TestableNetworkRequest, ADBCountDownLatch>
+	private val _networkRequests: MutableList<TestableNetworkRequest> = mutableListOf()
+	// Read-only access to network requests
+	val networkRequests: List<NetworkRequest>
+		get() = _networkRequests
+	private val _networkResponses: MutableMap<TestableNetworkRequest, MutableList<HttpConnecting>> = HashMap()
+	// Read-only access to network responses
+	val networkResponses: Map<TestableNetworkRequest, MutableList<HttpConnecting>>
+		get() = _networkResponses
+	private val expectedNetworkRequests: MutableMap<TestableNetworkRequest, ADBCountDownLatch> = HashMap()
 
 	companion object {
 		private const val LOG_SOURCE = "NetworkRequestHelper"
 	}
 
-	init {
-		sentTestableNetworkRequests = HashMap()
-		networkResponses = HashMap()
-		expectedTestableNetworkRequests = HashMap()
+	/**
+	 * Records a sent network request.
+	 *
+	 * @param networkRequest The network request that is to be recorded.
+	 */
+	fun recordNetworkRequest(networkRequest: NetworkRequest) {
+		Log.trace(
+			TestConstants.LOG_TAG,
+			LOG_SOURCE,
+			"Recording network request with URL ${networkRequest.url} and HTTPMethod ${networkRequest.method}")
+
+		_networkRequests.add(TestableNetworkRequest(networkRequest))
 	}
 
 	/**
-	 * Resets the helper state by clearing all test expectations and stored data.
+	 * Resets the helper state by clearing all test expectations and recorded network requests and responses.
 	 */
 	fun reset() {
 		Log.trace(
 			TestConstants.LOG_TAG,
 			LOG_SOURCE,
-			"Reset received and expected network requests."
+			"Reset network request expectations and recorded network requests and responses."
 		)
-		sentTestableNetworkRequests.clear()
-		networkResponses.clear()
-		expectedTestableNetworkRequests.clear()
-	}
-
-	/**
-	 * Adds a network response for the provided network request.
-	 *
-	 * @param request The [TestableNetworkRequest] for which the response is being set.
-	 * @param responseConnection The [HttpConnecting] to set as a response.
-	 */
-	fun addResponseFor(
-		request: TestableNetworkRequest,
-		responseConnection: HttpConnecting
-	) {
-		if (networkResponses[request] != null) {
-			networkResponses[request]?.add(responseConnection)
-		} else {
-			// If there's no response for this request yet, start a new list with the first response
-			networkResponses[request] = mutableListOf(responseConnection)
-		}
-	}
-
-	/**
-	 * Sets the expected number of times a network request should be sent.
-	 *
-	 * @param request The [TestableNetworkRequest] representing the network request to set the expectation for.
-	 * @param count The number of times the request is expected to be sent.
-	 * @see [assertAllNetworkRequestExpectations]
-	 */
-	fun setExpectationForNetworkRequest(request: TestableNetworkRequest, count: Int) {
-		expectedTestableNetworkRequests[request] = ADBCountDownLatch(count)
-	}
-
-	fun getExpectedNetworkRequests(): Map<TestableNetworkRequest, ADBCountDownLatch> {
-		return expectedTestableNetworkRequests
-	}
-
-	/**
-	 * Returns all sent network requests that match the provided network request.
-	 *
-	 * The matching relies on [TestableNetworkRequest.equals].
-	 *
-	 * @param request The [TestableNetworkRequest] for which to get matching requests.
-	 *
-	 * @return A list of [TestableNetworkRequest]s that match the provided [request]. If no matches are found, an empty list is returned.
-	 */
-	fun getSentNetworkRequestsMatching(request: TestableNetworkRequest): List<TestableNetworkRequest> {
-		for ((key, value) in sentTestableNetworkRequests) {
-			if (key == request) {
-				return value
-			}
-		}
-		return emptyList()
-	}
-
-	/**
-	 * Returns the network request(s) sent through the Core `NetworkService`, returning an empty list if none were found.
-	 *
-	 * Use this method after calling [setExpectationForNetworkRequest] to await expected requests.
-	 *
-	 * @param url The URL `String` of the [TestableNetworkRequest] to get.
-	 * @param method The HTTP method of the [TestableNetworkRequest] to get.
-	 * @param timeoutMillis The duration (in milliseconds) to wait for the expected network requests.
-	 *
-	 * @return A list of [TestableNetworkRequest]s that match the provided [url] and [method]. Returns an empty list if
-	 * no matching requests were dispatched.
-	 *
-	 * @throws InterruptedException If the current thread is interrupted while waiting.
-	 */
-	@Throws(InterruptedException::class)
-	fun getNetworkRequestsWith(
-		url: String?,
-		method: HttpMethod?,
-		timeoutMillis: Int
-	): List<TestableNetworkRequest?> {
-		val networkRequest = TestableNetworkRequest(url, method)
-		if (isNetworkRequestExpected(networkRequest)) {
-			Assert.assertTrue(
-		"Time out waiting for network request(s) with URL '" +
-				networkRequest.url +
-				"' and method '" +
-				networkRequest.method.name +
-				"'",
-				awaitFor(networkRequest, timeoutMillis)
-			)
-		} else {
-			TestHelper.sleep(timeoutMillis)
-		}
-		return getSentNetworkRequestsMatching(networkRequest)
-	}
-
-	fun isNetworkRequestExpected(request: TestableNetworkRequest): Boolean {
-		return expectedTestableNetworkRequests.containsKey(request)
-	}
-
-	/**
-	 * Starts the expectation timer for the given network request, validating that all expected responses are received
-	 * within the provided timeout duration.
-	 *
-	 * @param request The [TestableNetworkRequest] for which the expectation timer should be started.
-	 * @param timeoutMillis The maximum duration (in milliseconds) to wait for the expected responses before timing out.
-	 *
-	 * @return `true` if the expected responses are received within the timeout, or if the [TestableNetworkRequest] does not match any expected request. `false` otherwise.
-	 *
-	 * @throws InterruptedException If the current thread is interrupted while waiting.
-	 */
-	@Throws(InterruptedException::class)
-	fun awaitFor(request: TestableNetworkRequest, timeoutMillis: Int): Boolean {
-		for ((key, value) in expectedTestableNetworkRequests) {
-			if (key == request) {
-				return value.await(timeoutMillis.toLong(), TimeUnit.MILLISECONDS)
-			}
-		}
-		return true
-	}
-
-	/**
-	 * Asserts that the correct number of network requests were sent based on previously set expectations.
-	 *
-	 * @throws InterruptedException If the current thread is interrupted while waiting.
-	 * @see [setExpectationForNetworkRequest]
-	 */
-	@Throws(InterruptedException::class)
-	fun assertAllNetworkRequestExpectations() {
-		TestHelper.waitForThreads(2000) // allow for some extra time for threads to finish before asserts
-		val expectedNetworkRequests: Map<TestableNetworkRequest, ADBCountDownLatch> =
-		getExpectedNetworkRequests()
-		if (expectedNetworkRequests.isEmpty()) {
-			Assert.fail(
-				"There are no network request expectations set, use this API after calling setExpectationForNetworkRequest"
-			)
-			return
-		}
-		for ((key, value) in expectedNetworkRequests) {
-			val awaitResult = value.await(5, TimeUnit.SECONDS)
-			Assert.assertTrue(
-		"Time out waiting for network request with URL '" +
-				key.url +
-				"' and method '" +
-				key.method.name +
-				"'",
-				awaitResult
-			)
-			val expectedCount = value.initialCount
-			val receivedCount = value.currentCount
-			val message = String.format(
-				"Expected %d network requests for URL %s (%s), but received %d",
-				expectedCount,
-				key.url,
-				key.method,
-				receivedCount
-			)
-			Assert.assertEquals(message, expectedCount.toLong(), receivedCount.toLong())
-		}
-	}
-
-	fun recordSentNetworkRequest(networkRequest: TestableNetworkRequest) {
-		Log.trace(
-			TestConstants.LOG_TAG,
-			LOG_SOURCE,
-			"Received connectAsync to URL ${networkRequest.url} and HTTPMethod ${networkRequest.method}")
-
-		val equalNetworkRequest = sentTestableNetworkRequests.entries.firstOrNull { (key, _) ->
-			key == networkRequest
-		}
-
-		if (equalNetworkRequest != null) {
-			sentTestableNetworkRequests[equalNetworkRequest.key]?.add(networkRequest)
-		} else {
-			sentTestableNetworkRequests[networkRequest] = mutableListOf(networkRequest)
-		}
+		_networkRequests.clear()
+		_networkResponses.clear()
+		expectedNetworkRequests.clear()
 	}
 
 	/**
 	 * Decrements the expectation count for a given network request.
 	 *
-	 * @param request The [TestableNetworkRequest] for which the expectation count should be decremented.
+	 * @param request The [NetworkRequest] for which the expectation count should be decremented.
 	 */
-	fun countDownExpected(request: TestableNetworkRequest) {
-		for ((key, value) in expectedTestableNetworkRequests) {
-			if (key == request) {
-				value.countDown()
+	fun countDownExpected(request: NetworkRequest) {
+		expectedNetworkRequests[TestableNetworkRequest(request)]?.countDown()
+	}
+
+	/**
+	 * Asserts on the expectation for the given network request, validating that all expected responses are received
+	 * within the provided timeout duration and that expected count is not exceeded. If no expectation is
+	 * set for the request, a configurable default wait time is applied.
+	 *
+	 * @param request The [NetworkRequest] for which the expectation should be asserted.
+	 * @param timeoutMillis The maximum duration (in milliseconds) to wait for the expected responses before timing out.
+	 * @param waitForUnexpectedEvents If `true`, a default wait time will be used when no expectation is set for the request.
+	 *                                Defaults to `true`.
+	 *
+	 * @throws InterruptedException If the current thread is interrupted while waiting.
+	 */
+	@Throws(InterruptedException::class)
+	fun awaitRequest(request: NetworkRequest, timeoutMillis: Int, waitForUnexpectedEvents: Boolean = true) {
+		val expectation = expectedNetworkRequests[TestableNetworkRequest(request)]
+		if (expectation != null) {
+			val awaitResult = expectation.await(timeoutMillis.toLong(), TimeUnit.MILLISECONDS)
+			// Verify that the expectation passes within the given timeout
+			assertTrue("""
+				Time out waiting for network request with URL '${request.url}' and HTTP method 
+				'${request.method.name}'. Received (${expectation.currentCount}/${expectation.initialCount}) expected requests. 
+				""".trimIndent(),
+				awaitResult
+			)
+			// Validate that the actual count does not exceed the expected count
+			assertEquals("""
+                Expected only ${expectation.initialCount} network request(s) for URL ${request.url} and 
+				HTTP method ${request.method.name}, but received ${expectation.currentCount}. 
+                """.trimIndent(),
+				expectation.initialCount,
+				expectation.currentCount)
+		}
+		// Default wait time for network request with no previously set expectation
+		else {
+			if (waitForUnexpectedEvents) {
+				TestHelper.waitForThreads(timeoutMillis)
 			}
 		}
 	}
 
 	/**
-	 * Returns the network responses associated with the given network request.
+	 * Immediately returns all network requests that match the provided network request. Does **not**
+	 * await.
 	 *
-	 * @param request The [TestableNetworkRequest] for which the associated responses should be returned.
-	 * @return The list of [HttpConnecting] responses for the given request or `null` if not found.
-	 * @see [TestableNetworkRequest.equals]
+	 * The matching logic relies on [TestableNetworkRequest.equals].
+	 *
+	 * @param request The [NetworkRequest] for which to get matching requests.
+	 *
+	 * @return A list of [NetworkRequest]s that match the provided [request]. If no matches are found, an empty list is returned.
 	 */
-	fun getResponsesFor(request: TestableNetworkRequest): List<HttpConnecting>? {
-		for ((key, value) in networkResponses) {
-			if (key == request) {
-				return value
-			}
+	fun getRequestsMatching(request: NetworkRequest): List<NetworkRequest> {
+		return _networkRequests.filter { it == request }
+	}
+
+	/**
+	 * Adds a network response for the provided network request. If a response already exists, adds
+	 * the given response to the end of the list.
+	 *
+	 * @param request The [NetworkRequest] for which the response will be set.
+	 * @param responseConnection The [HttpConnecting] to add as a response.
+	 */
+	fun addResponseFor(
+		request: NetworkRequest,
+		responseConnection: HttpConnecting
+	) {
+		val testableRequest = TestableNetworkRequest(request)
+		if (_networkResponses[testableRequest] != null) {
+			_networkResponses[testableRequest]?.add(responseConnection)
+		} else {
+			// If there's no response for this request yet, start a new list with the first response
+			_networkResponses[testableRequest] = mutableListOf(responseConnection)
 		}
-		return null
+	}
+
+	/**
+	 * Removes all network responses for the provided network request.
+	 *
+	 * @param request The [NetworkRequest] for which all responses will be removed.
+	 */
+	fun removeResponsesFor(request: NetworkRequest) {
+		val testableRequest = TestableNetworkRequest(request)
+		_networkResponses.remove(testableRequest)
+	}
+
+	/**
+	 * Returns the network responses for the given network request.
+	 *
+	 * @param request The [NetworkRequest] for which the associated responses should be returned.
+	 * @return The list of [HttpConnecting] responses for the given request or `null` if not found.
+	 * @see [TestableNetworkRequest.equals] for the logic used to match network requests.
+	 */
+	fun getResponsesFor(request: NetworkRequest): List<HttpConnecting>? {
+		return _networkResponses[TestableNetworkRequest(request)]
+	}
+
+	/**
+	 * Sets the expected number of times a network request should be sent. If there is already an existing expectation
+	 * for the same request, it is replaced with the new value.
+	 *
+	 * @param request The [NetworkRequest] to set the expectation for.
+	 * @param count The expected number of times the request should be sent.
+	 * @see [assertAllNetworkRequestExpectations] for checking all expectations.
+	 */
+	fun setExpectationFor(request: NetworkRequest, count: Int) {
+		expectedNetworkRequests[TestableNetworkRequest(request)] = ADBCountDownLatch(count)
+	}
+
+	/**
+	 * Asserts that the correct number of network requests have been sent based on previously set expectations.
+	 * It waits for expected requests to complete and optionally checks for unexpected ones.
+	 *
+	 * @param ignoreUnexpectedRequests If `true`, skips validation of unexpected requests. Defaults to `true`.
+	 * @param waitForUnexpectedRequests If `true`, waits for unexpected requests to occur within the given timeout. Defaults to `true`.
+	 * @param timeoutMillis The maximum time to wait (in milliseconds) for expected requests to complete. Defaults to [TestConstants.Defaults.WAIT_NETWORK_REQUEST_TIMEOUT_MS].
+	 *
+	 * @throws InterruptedException If the current thread is interrupted while waiting.
+	 * @see [setExpectationFor] to set expectations for specific network requests.
+	 */
+	@Throws(InterruptedException::class)
+	fun assertAllNetworkRequestExpectations(
+		ignoreUnexpectedRequests: Boolean = true,
+		waitForUnexpectedRequests: Boolean = true,
+		timeoutMillis: Int = TestConstants.Defaults.WAIT_NETWORK_REQUEST_TIMEOUT_MS) {
+		// Validate expected events
+		for (expectedRequest in expectedNetworkRequests.keys) {
+			awaitRequest(expectedRequest, timeoutMillis, false)
+		}
+		// Validate unexpected requests if required
+		if (ignoreUnexpectedRequests) {
+			return
+		}
+		if (waitForUnexpectedRequests) {
+			TestHelper.waitForThreads(timeoutMillis)
+		}
+		assertNoUnexpectedRequests()
+	}
+
+	/**
+	 * Asserts that there are no unexpected network requests.
+	 */
+	private fun assertNoUnexpectedRequests() {
+		// Group unexpected network requests (those not in expected keys) by TestableNetworkRequest equality
+		val groupedRequests = _networkRequests
+			.filter { it !in expectedNetworkRequests.keys }
+			.groupBy { it }
+
+		val failureDetails = groupedRequests.entries.joinToString(separator = "\n") { (request, group) ->
+			"(URL: ${request.url}, HTTPMethod: ${request.method.name}, Count: ${group.size})"
+		}
+
+		// If there are any unexpected requests, fail with a message
+		if (failureDetails.isNotEmpty()) {
+			fail("Received unexpected network request(s): \n$failureDetails")
+		}
+	}
+
+	/**
+	 * Fetches the network request(s) matching the provided [url] and [method], returning an empty list if none were found.
+	 * To wait for expected requests, this method should be used after calling [setExpectationFor].
+	 *
+	 * @param url The URL string of the [NetworkRequest] to match.
+	 * @param method The HTTP method of the [NetworkRequest] to match.
+	 * @param timeoutMillis The time in milliseconds to wait for the expected network requests. Defaults to [TestConstants.Defaults.WAIT_NETWORK_REQUEST_TIMEOUT_MS].
+	 *
+	 * @return A list of [NetworkRequest]s that match the provided [url] and [method]. If no matching requests are found,
+	 * an empty list is returned.
+	 *
+	 * @throws InterruptedException If the current thread is interrupted while waiting.
+	 */
+	@Throws(InterruptedException::class)
+	fun getNetworkRequestsWith(
+		url: String,
+		method: HttpMethod,
+		timeoutMillis: Int = TestConstants.Defaults.WAIT_NETWORK_REQUEST_TIMEOUT_MS
+	): List<NetworkRequest> {
+		val testableRequest = TestableNetworkRequest(url, method)
+		awaitRequest(testableRequest, timeoutMillis)
+		return getRequestsMatching(testableRequest)
 	}
 }

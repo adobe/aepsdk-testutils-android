@@ -20,7 +20,8 @@ import java.util.Map;
 import java.util.Objects;
 
 /**
- * Class represents a network request received by the {@code NetworkService}.
+ * A NetworkRequest conforming class that provides additional functionality that is helpful in testing
+ * scenarios.
  */
 public class TestableNetworkRequest extends NetworkRequest {
 
@@ -71,11 +72,22 @@ public class TestableNetworkRequest extends NetworkRequest {
 			return true;
 		}
 
-		if (o == null || getClass() != o.getClass()) {
+		if (o == null) {
 			return false;
 		}
-
-		TestableNetworkRequest that = (TestableNetworkRequest) o;
+		TestableNetworkRequest that;
+		// If o is an instance of TestableNetworkRequest, cast it directly
+		if (o instanceof TestableNetworkRequest) {
+			that = (TestableNetworkRequest) o;
+		}
+		// If o is an instance of NetworkRequest, convert it to TestableNetworkRequest
+		else if (o instanceof NetworkRequest) {
+			that = new TestableNetworkRequest((NetworkRequest) o);
+		}
+		// o is not compatible
+		else {
+			return false;
+		}
 
 		if (this.getMethod() != that.getMethod()) {
 			return false;
