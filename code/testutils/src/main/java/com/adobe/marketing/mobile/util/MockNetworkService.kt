@@ -25,10 +25,21 @@ import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
 /**
- * [Networking] conforming network service utility used for tests that require mocked network requests and mocked responses.
+ * [Networking] conforming network service test helper utility class used for tests that require mocked
+ * network requests and mocked responses.
  */
 class MockNetworkService: Networking {
     private val helper = NetworkRequestHelper()
+    /**
+     * Flag that indicates if the [connectAsync] method was called.
+     * Note that this property does not await and returns the status immediately.
+     */
+    val connectAsyncCalled: Boolean
+        get() {
+            // Assumes that `NetworkRequestHelper.recordSentNetworkRequest` is always called by `connectAsync`.
+            // If this assumption changes, this flag logic needs to be updated.
+            return helper.networkRequests.isNotEmpty()
+        }
     // Simulating the async network service
     private val executorService: ExecutorService = Executors.newCachedThreadPool()
 
@@ -64,14 +75,11 @@ class MockNetworkService: Networking {
         Log.trace(
             TestConstants.LOG_TAG,
             LOG_SOURCE,
-            "Received connectUrlAsync to URL '%s' and HttpMethod '%s'.",
-            networkRequest.url,
-            networkRequest.method.name
+            "Received connectUrlAsync to URL '${networkRequest.url}' and HttpMethod '${networkRequest.method.name}'."
         )
 
+        helper.recordNetworkRequest(networkRequest)
         val testableNetworkRequest = TestableNetworkRequest(networkRequest)
-        helper.recordSentNetworkRequest(testableNetworkRequest)
-        helper.countDownExpected(testableNetworkRequest)
 
         executorService.submit {
             if (resultCallback != null) {
@@ -82,14 +90,31 @@ class MockNetworkService: Networking {
                         e.printStackTrace()
                     }
                 }
-                resultCallback.call(helper.getResponsesFor(testableNetworkRequest)?.firstOrNull() ?: defaultResponse)
+                resultCallback.call(helper.getResponsesFor(networkRequest)?.firstOrNull() ?: defaultResponse)
+                // Do countdown after notifying completion handler to avoid prematurely ungating awaits
+                // before required network logic finishes
+                helper.countDownExpected(testableNetworkRequest)
             }
         }
     }
 
+    /**
+     * Clears all test expectations and recorded network requests and responses.
+     */
     fun reset() {
         delayedResponse = 0
         helper.reset()
+    }
+
+    /**
+     * Sets the provided delay for all network responses, until reset.
+     * @param delaySec The delay in seconds.
+     */
+    fun enableNetworkResponseDelay(delaySec: Int) {
+        if (delaySec < 0) {
+            return
+        }
+        delayedResponse = delaySec
     }
 
     /**
@@ -99,16 +124,17 @@ class MockNetworkService: Networking {
      * @param method The [HttpMethod] of the [TestableNetworkRequest] for which the mock response is being set.
      * @param responseConnection The [HttpConnecting] instance to set as a response. If `null` is provided, a default '200' response is used.
      */
+    @JvmOverloads
     fun setMockResponseFor(
-        url: String?,
-        method: HttpMethod?,
-        responseConnection: HttpConnecting?
+        url: String,
+        method: HttpMethod = HttpMethod.POST,
+        responseConnection: HttpConnecting
     ) {
         helper.addResponseFor(
             TestableNetworkRequest(
                 url,
                 method
-            ), responseConnection ?: defaultResponse
+            ), responseConnection
         )
     }
 
@@ -120,11 +146,11 @@ class MockNetworkService: Networking {
      * @param expectedCount The number of times the request is expected to be sent.
      */
     fun setExpectationForNetworkRequest(
-        url: String?,
-        method: HttpMethod?,
+        url: String,
+        method: HttpMethod,
         expectedCount: Int
     ) {
-        helper.setExpectationForNetworkRequest(
+        helper.setExpectationFor(
             TestableNetworkRequest(
                 url,
                 method
@@ -138,8 +164,20 @@ class MockNetworkService: Networking {
      * @throws InterruptedException If the current thread is interrupted while waiting.
      * @see [setExpectationForNetworkRequest]
      */
-    fun assertAllNetworkRequestExpectations() {
-        helper.assertAllNetworkRequestExpectations()
+    @JvmOverloads
+    fun assertAllNetworkRequestExpectations(
+        ignoreUnexpectedRequests: Boolean = true,
+        waitForUnexpectedEvents: Boolean = true,
+        timeoutMillis: Int = TestConstants.Defaults.WAIT_NETWORK_REQUEST_TIMEOUT_MS
+    ) {
+        helper.assertAllNetworkRequestExpectations(ignoreUnexpectedRequests, waitForUnexpectedEvents, timeoutMillis)
+    }
+
+    /**
+     * Immediately returns all sent network requests (if any) **without awaiting**.
+     */
+    fun getAllNetworkRequests(): List<NetworkRequest> {
+        return helper.networkRequests
     }
 
     /**
@@ -147,13 +185,12 @@ class MockNetworkService: Networking {
      *
      * Use this method after calling [setExpectationForNetworkRequest] to wait for expected requests.
      *
-     * @param url The URL `String` of the [TestableNetworkRequest] to get.
-     * @param method The [HttpMethod] of the [TestableNetworkRequest] to get.
+     * @param url The URL `String` of the [NetworkRequest] to get.
+     * @param method The [HttpMethod] of the [NetworkRequest] to get.
      * @param timeoutMillis The duration (in milliseconds) to wait for the expected network requests before
      * timing out. Defaults to [TestConstants.Defaults.WAIT_NETWORK_REQUEST_TIMEOUT_MS].
      *
-     * @return A list of [TestableNetworkRequest]s that match the provided [url] and [method]. Returns
-     * an empty list if no matching requests were dispatched.
+     * @return A list of matching [NetworkRequest]s. Returns an empty list if no matching requests were dispatched.
      *
      * @throws InterruptedException If the current thread is interrupted while waiting.
      *
@@ -161,10 +198,10 @@ class MockNetworkService: Networking {
      */
     @Throws(InterruptedException::class)
     @JvmOverloads
-    fun getNetworkRequestsWith(url: String?,
-                               method: HttpMethod?,
+    fun getNetworkRequestsWith(url: String,
+                               method: HttpMethod,
                                timeoutMillis: Int = TestConstants.Defaults.WAIT_NETWORK_REQUEST_TIMEOUT_MS
-    ): List<TestableNetworkRequest?> {
+    ): List<NetworkRequest> {
         return helper.getNetworkRequestsWith(url, method, timeoutMillis)
     }
 
@@ -225,25 +262,5 @@ class MockNetworkService: Networking {
 
             override fun close() {}
         }
-    }
-
-    /**
-     * Sets the provided delay for all network responses, until reset.
-     * @param delaySec The delay in seconds.
-     */
-    fun enableNetworkResponseDelay(delaySec: Int) {
-        if (delaySec < 0) {
-            return
-        }
-        delayedResponse = delaySec
-    }
-
-    /**
-     * Use this API for JSON formatted [NetworkRequest] body in order to retrieve a flattened map containing its data.
-     * @param networkRequest the [NetworkRequest] to parse
-     * @return The JSON request body represented as a flatten map
-     */
-    fun getFlattenedNetworkRequestBody(networkRequest: NetworkRequest): Map<String?, String?>? {
-        return TestUtils.flattenBytes(networkRequest.body)
     }
 }

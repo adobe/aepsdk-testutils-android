@@ -17,6 +17,7 @@ import com.adobe.marketing.mobile.services.NetworkCallback
 import com.adobe.marketing.mobile.services.NetworkRequest
 import com.adobe.marketing.mobile.services.NetworkServiceHelper
 import com.adobe.marketing.mobile.services.TestableNetworkRequest
+import org.junit.Assert.fail
 
 /**
  * An override of `NetworkService` used for tests that require real outgoing network requests. Provides
@@ -24,19 +25,47 @@ import com.adobe.marketing.mobile.services.TestableNetworkRequest
  */
 class RealNetworkService: NetworkServiceHelper() {
     private val helper = NetworkRequestHelper()
+    /**
+     * Flag that indicates if the [connectAsync] method was called.
+     * Note that this property does not await and returns the status immediately.
+     */
+    val connectAsyncCalled: Boolean
+        get() {
+            // Assumes that `NetworkRequestHelper.recordSentNetworkRequest` is always called by `connectAsync`.
+            // If this assumption changes, this flag logic needs to be updated.
+            return helper.networkRequests.isNotEmpty()
+        }
     companion object {
         private const val LOG_SOURCE = "RealNetworkService"
     }
 
     override fun connectAsync(request: NetworkRequest?, callback: NetworkCallback?) {
-        val testableNetworkRequest = TestableNetworkRequest(request)
-        helper.recordSentNetworkRequest(testableNetworkRequest)
-        super.connectAsync(testableNetworkRequest) {
-            helper.addResponseFor(testableNetworkRequest, it)
-            helper.countDownExpected(testableNetworkRequest)
+        if (request == null) {
+            fail("connectAsync called with null network request.")
+            return
+        }
+        helper.recordNetworkRequest(request)
+        super.connectAsync(request) {
+            helper.addResponseFor(request, it)
+            helper.countDownExpected(request)
 
             callback?.call(it)
         }
+    }
+
+    /**
+     * Immediately returns the associated responses (if any) for the provided network request **without awaiting**.
+     *
+     * Note: To properly await network responses for a given request, make sure to set an expectation
+     * using [setExpectationForNetworkRequest] then await the expectation using [assertAllNetworkRequestExpectations].
+     *
+     * @param networkRequest The [NetworkRequest] for which the response should be returned.
+     * @return The list of [HttpConnecting] responses for the given request or `null` if not found.
+     * @see [setExpectationForNetworkRequest]
+     * @see [assertAllNetworkRequestExpectations]
+     */
+    fun getResponsesFor(request: NetworkRequest): List<HttpConnecting>? {
+        return helper.getResponsesFor(request)
     }
 
     // Passthrough for shared helper APIs
@@ -46,8 +75,19 @@ class RealNetworkService: NetworkServiceHelper() {
      * @throws InterruptedException If the current thread is interrupted while waiting.
      * @see [setExpectationForNetworkRequest]
      */
-    fun assertAllNetworkRequestExpectations() {
-        helper.assertAllNetworkRequestExpectations()
+    fun assertAllNetworkRequestExpectations(
+        ignoreUnexpectedRequests: Boolean = true,
+        waitForUnexpectedRequests: Boolean = true,
+        timeoutMillis: Int = TestConstants.Defaults.WAIT_NETWORK_REQUEST_TIMEOUT_MS
+    ) {
+        helper.assertAllNetworkRequestExpectations(ignoreUnexpectedRequests, waitForUnexpectedRequests, timeoutMillis)
+    }
+
+    /**
+     * Immediately returns all sent network requests (if any) **without awaiting**.
+     */
+    fun getAllNetworkRequests(): List<NetworkRequest> {
+        return helper.networkRequests
     }
 
     /**
@@ -69,63 +109,46 @@ class RealNetworkService: NetworkServiceHelper() {
      */
     @Throws(InterruptedException::class)
     @JvmOverloads
-    fun getNetworkRequestsWith(url: String?,
-                               method: HttpMethod?,
-                               timeoutMillis: Int = TestConstants.Defaults.WAIT_NETWORK_REQUEST_TIMEOUT_MS
-    ): List<TestableNetworkRequest?> {
+    fun getNetworkRequestsWith(
+        url: String,
+        method: HttpMethod,
+        timeoutMillis: Int = TestConstants.Defaults.WAIT_NETWORK_REQUEST_TIMEOUT_MS
+    ): List<NetworkRequest> {
         return helper.getNetworkRequestsWith(url, method, timeoutMillis)
     }
 
+    /**
+     * Clears all test expectations and recorded network requests and responses.
+     */
     fun reset() {
         helper.reset()
     }
 
-
     /**
-     * Immediately returns the associated responses (if any) for the provided network request **without awaiting**.
+     * Sets the expected number of times a network request should be sent.
      *
-     * Note: To properly await network responses for a given request, make sure to set an expectation
-     * using [setExpectationForNetworkRequest] then await the expectation using [assertAllNetworkRequestExpectations].
-     *
-     * @param networkRequest The [NetworkRequest] for which the response should be returned.
-     * @return The list of [HttpConnecting] responses for the given request or `null` if not found.
-     * @see [setExpectationForNetworkRequest]
-     * @see [assertAllNetworkRequestExpectations]
+     * @param url The URL `String` of the [NetworkRequest] for which the expectation is set.
+     * @param method The [HttpMethod] of the [NetworkRequest] for which the expectation is set.
+     * @param expectedCount The number of times the request is expected to be sent.
      */
-    fun getResponsesFor(networkRequest: NetworkRequest): List<HttpConnecting>? {
-        return helper.getResponsesFor(TestableNetworkRequest(networkRequest))
+    fun setExpectationForNetworkRequest(
+        url: String,
+        method: HttpMethod,
+        expectedCount: Int
+    ) {
+        setExpectationForNetworkRequest(TestableNetworkRequest(url, method), expectedCount)
     }
 
     /**
      * Sets the expected number of times a network request should be sent.
      *
-     * @param url The URL `String` of the [TestableNetworkRequest] for which the expectation is set.
-     * @param method The [HttpMethod] of the [TestableNetworkRequest] for which the expectation is set.
+     * @param networkRequest The [NetworkRequest] for which the expectation is set.
      * @param expectedCount The number of times the request is expected to be sent.
      */
     fun setExpectationForNetworkRequest(
-        url: String?,
-        method: HttpMethod?,
+        networkRequest: NetworkRequest,
         expectedCount: Int
     ) {
-        helper.setExpectationForNetworkRequest(
-            TestableNetworkRequest(
-                url,
-                method
-            ), expectedCount
-        )
-    }
-
-    /**
-     * Sets the expected number of times a network request should be sent.
-     *
-     * @param networkRequest The [TestableNetworkRequest] for which the expectation is set.
-     * @param expectedCount The number of times the request is expected to be sent.
-     */
-    fun setExpectationForNetworkRequest(
-        networkRequest: TestableNetworkRequest,
-        expectedCount: Int
-    ) {
-        setExpectationForNetworkRequest(networkRequest.url, networkRequest.method, expectedCount)
+        helper.setExpectationFor(networkRequest, expectedCount)
     }
 }
