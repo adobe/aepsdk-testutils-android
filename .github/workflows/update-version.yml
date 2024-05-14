@@ -30,8 +30,8 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v4.1.5
     
-    - name: Update Edge Consent
-      run: (./scripts/version.sh -u -v ${{ github.event.inputs.version }} -d "Core ${{ github.event.inputs.core-dependency }}, Edge ${{ github.event.inputs.edge-dependency }}")
+    - name: Update TestUtils Version
+      run: (./scripts/version.sh -u -v ${{ github.event.inputs.version }} -d "Core ${{ github.event.inputs.core-dependency }}")
     
     - name: Create Pull Request
       run: |
