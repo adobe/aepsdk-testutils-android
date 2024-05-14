@@ -41,8 +41,7 @@ public class MonitorExtension extends Extension {
 		super(extensionApi);
 	}
 
-	@NonNull
-	@Override
+	@NonNull @Override
 	protected String getName() {
 		return "MonitorExtension";
 	}
@@ -190,8 +189,7 @@ public class MonitorExtension extends Extension {
 			this.type = type.toLowerCase();
 		}
 
-		@NonNull
-		@Override
+		@NonNull @Override
 		public String toString() {
 			return "type '" + type + "' and source '" + source + "'";
 		}

@@ -11,8 +11,8 @@
 
 package com.adobe.marketing.mobile.util;
 
-import static com.adobe.marketing.mobile.util.TestConstants.LOG_TAG;
 import static com.adobe.marketing.mobile.util.MonitorExtension.EventSpec;
+import static com.adobe.marketing.mobile.util.TestConstants.LOG_TAG;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
@@ -22,7 +22,6 @@ import android.app.Instrumentation;
 import android.content.Context;
 import android.content.SharedPreferences;
 import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 import androidx.test.platform.app.InstrumentationRegistry;
 import com.adobe.marketing.mobile.AdobeCallbackWithError;
 import com.adobe.marketing.mobile.AdobeError;
@@ -30,11 +29,10 @@ import com.adobe.marketing.mobile.Event;
 import com.adobe.marketing.mobile.LoggingMode;
 import com.adobe.marketing.mobile.MobileCore;
 import com.adobe.marketing.mobile.MobileCoreHelper;
-import com.adobe.marketing.mobile.services.MockDataStoreService;
 import com.adobe.marketing.mobile.services.Log;
+import com.adobe.marketing.mobile.services.MockDataStoreService;
 import com.adobe.marketing.mobile.services.ServiceProvider;
 import com.adobe.marketing.mobile.services.ServiceProviderHelper;
-
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -47,7 +45,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
-
 import org.junit.rules.TestRule;
 import org.junit.runner.Description;
 import org.junit.runners.model.Statement;
@@ -341,7 +338,7 @@ public class TestHelper {
 				.getValue()
 				.await(TestConstants.Defaults.WAIT_EVENT_TIMEOUT_MS, TimeUnit.MILLISECONDS);
 			assertTrue(
-		"Timed out waiting for event type " +
+				"Timed out waiting for event type " +
 				expected.getKey().type +
 				" and source " +
 				expected.getKey().source,
@@ -585,9 +582,7 @@ public class TestHelper {
 			SharedPreferences sharedPreferences = context.getSharedPreferences(datastore, Context.MODE_PRIVATE);
 
 			if (sharedPreferences == null) {
-				fail(
-					"TestHelper - Unable to clear datastores. sharedPreferences is null, fast failing the test case."
-				);
+				fail("TestHelper - Unable to clear datastores. sharedPreferences is null, fast failing the test case.");
 			}
 
 			SharedPreferences.Editor editor = sharedPreferences.edit();

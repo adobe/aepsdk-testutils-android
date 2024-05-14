@@ -23,6 +23,7 @@ public class TestConstants {
 
 	// Event type and sources used by Monitor Extension
 	public static class EventType {
+
 		public static final String CONFIGURATION = "com.adobe.eventType.configuration";
 		public static final String EDGE = "com.adobe.eventType.edge";
 		public static final String MONITOR = "com.adobe.functional.eventType.monitor";

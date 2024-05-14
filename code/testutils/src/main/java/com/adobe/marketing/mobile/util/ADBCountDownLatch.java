@@ -55,8 +55,7 @@ public class ADBCountDownLatch {
 		return currentCount.get();
 	}
 
-	@NonNull
-	@Override
+	@NonNull @Override
 	public String toString() {
 		return String.format("%s, initial: %d, current: %d", latch, initialCount, currentCount.get());
 	}

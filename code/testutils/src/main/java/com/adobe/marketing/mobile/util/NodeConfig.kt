@@ -1,7 +1,18 @@
+/*
+  Copyright 2024 Adobe. All rights reserved.
+  This file is licensed to you under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License. You may obtain a copy
+  of the License at http://www.apache.org/licenses/LICENSE-2.0
+  Unless required by applicable law or agreed to in writing, software distributed under
+  the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR REPRESENTATIONS
+  OF ANY KIND, either express or implied. See the License for the specific language
+  governing permissions and limitations under the License.
+*/
+
 package com.adobe.marketing.mobile.util
 
-import java.util.Objects
 import org.junit.Assert.fail
+import java.util.Objects
 import java.util.regex.Pattern
 
 /**
@@ -81,8 +92,8 @@ data class AnyOrderMatch(
      * @param scope The scope of configuration, defaulting to single node.
      */
     @JvmOverloads
-    constructor(paths: List<String?> = listOf(null), isActive: Boolean = true, scope: NodeConfig.Scope = NodeConfig.Scope.SingleNode)
-            : this(paths, config = NodeConfig.Config(isActive = isActive), scope = scope)
+    constructor(paths: List<String?> = listOf(null), isActive: Boolean = true, scope: NodeConfig.Scope = NodeConfig.Scope.SingleNode) :
+        this(paths, config = NodeConfig.Config(isActive = isActive), scope = scope)
 
     /**
      * Variadic initializer allowing multiple string paths.
@@ -92,12 +103,12 @@ data class AnyOrderMatch(
      * @param scope The scope of configuration, defaulting to single node.
      */
     @JvmOverloads
-    constructor(vararg paths: String?, isActive: Boolean = true, scope: NodeConfig.Scope = NodeConfig.Scope.SingleNode)
-            : this(
-                if (paths.isEmpty()) listOf(null) else paths.toList(),
-                isActive = isActive,
-                scope = scope
-            )
+    constructor(vararg paths: String?, isActive: Boolean = true, scope: NodeConfig.Scope = NodeConfig.Scope.SingleNode) :
+        this(
+            if (paths.isEmpty()) listOf(null) else paths.toList(),
+            isActive = isActive,
+            scope = scope
+        )
 }
 
 /**
@@ -118,8 +129,8 @@ data class CollectionEqualCount(
      * @param scope The scope of configuration, defaulting to single node.
      */
     @JvmOverloads
-    constructor(paths: List<String?> = listOf(null), isActive: Boolean = true, scope: NodeConfig.Scope = NodeConfig.Scope.SingleNode)
-            : this(paths, config = NodeConfig.Config(isActive = isActive), scope = scope)
+    constructor(paths: List<String?> = listOf(null), isActive: Boolean = true, scope: NodeConfig.Scope = NodeConfig.Scope.SingleNode) :
+        this(paths, config = NodeConfig.Config(isActive = isActive), scope = scope)
 
     /**
      * Variadic initializer allowing multiple string paths.
@@ -129,12 +140,12 @@ data class CollectionEqualCount(
      * @param scope Specifies the scope of the configuration.
      */
     @JvmOverloads
-    constructor(vararg paths: String?, isActive: Boolean = true, scope: NodeConfig.Scope = NodeConfig.Scope.SingleNode)
-            : this(
-        if (paths.isEmpty()) listOf(null) else paths.toList(),
-        isActive = isActive,
-        scope = scope
-    )
+    constructor(vararg paths: String?, isActive: Boolean = true, scope: NodeConfig.Scope = NodeConfig.Scope.SingleNode) :
+        this(
+            if (paths.isEmpty()) listOf(null) else paths.toList(),
+            isActive = isActive,
+            scope = scope
+        )
 }
 
 /**
@@ -155,8 +166,8 @@ data class KeyMustBeAbsent(
      * @param scope The scope of configuration, defaulting to single node.
      */
     @JvmOverloads
-    constructor(paths: List<String?> = listOf(null), isActive: Boolean = true, scope: NodeConfig.Scope = NodeConfig.Scope.SingleNode)
-            : this(paths, NodeConfig.OptionKey.KeyMustBeAbsent, NodeConfig.Config(isActive = isActive), scope)
+    constructor(paths: List<String?> = listOf(null), isActive: Boolean = true, scope: NodeConfig.Scope = NodeConfig.Scope.SingleNode) :
+        this(paths, NodeConfig.OptionKey.KeyMustBeAbsent, NodeConfig.Config(isActive = isActive), scope)
 
     /**
      * Variadic initializer allowing multiple string paths.
@@ -166,12 +177,12 @@ data class KeyMustBeAbsent(
      * @param scope Specifies the scope of the configuration.
      */
     @JvmOverloads
-    constructor(vararg paths: String?, isActive: Boolean = true, scope: NodeConfig.Scope = NodeConfig.Scope.SingleNode)
-            : this(
-        if (paths.isEmpty()) listOf(null) else paths.toList(),
-        isActive = isActive,
-        scope = scope
-    )
+    constructor(vararg paths: String?, isActive: Boolean = true, scope: NodeConfig.Scope = NodeConfig.Scope.SingleNode) :
+        this(
+            if (paths.isEmpty()) listOf(null) else paths.toList(),
+            isActive = isActive,
+            scope = scope
+        )
 }
 
 /**
@@ -198,8 +209,8 @@ data class ValueExactMatch(
      * @param scope The scope of configuration, typically single node or subtree.
      */
     @JvmOverloads
-    constructor(paths: List<String?> = listOf(null), scope: NodeConfig.Scope = NodeConfig.Scope.SingleNode)
-            : this(paths, config = NodeConfig.Config(isActive = true), scope = scope)
+    constructor(paths: List<String?> = listOf(null), scope: NodeConfig.Scope = NodeConfig.Scope.SingleNode) :
+        this(paths, config = NodeConfig.Config(isActive = true), scope = scope)
 
     /**
      * Variadic constructor allowing multiple string paths. This constructor handles empty path inputs
@@ -209,11 +220,11 @@ data class ValueExactMatch(
      * @param scope Specifies the scope of the configuration, typically single node or subtree.
      */
     @JvmOverloads
-    constructor(vararg paths: String?, scope: NodeConfig.Scope = NodeConfig.Scope.SingleNode)
-            : this(
-        if (paths.isEmpty()) listOf(null) else paths.toList(),
-        scope = scope
-    )
+    constructor(vararg paths: String?, scope: NodeConfig.Scope = NodeConfig.Scope.SingleNode) :
+        this(
+            if (paths.isEmpty()) listOf(null) else paths.toList(),
+            scope = scope
+        )
 }
 
 /**
@@ -233,8 +244,8 @@ data class ValueTypeMatch(
      * @param scope The scope of configuration, typically single node or subtree.
      */
     @JvmOverloads
-    constructor(paths: List<String?> = listOf(null), scope: NodeConfig.Scope = NodeConfig.Scope.SingleNode)
-            : this(paths, config = NodeConfig.Config(isActive = false), scope = scope)
+    constructor(paths: List<String?> = listOf(null), scope: NodeConfig.Scope = NodeConfig.Scope.SingleNode) :
+        this(paths, config = NodeConfig.Config(isActive = false), scope = scope)
 
     /**
      * Variadic initializer allowing multiple string paths.
@@ -243,11 +254,11 @@ data class ValueTypeMatch(
      * @param scope Specifies the scope of the configuration, typically single node or subtree.
      */
     @JvmOverloads
-    constructor(vararg paths: String?, scope: NodeConfig.Scope = NodeConfig.Scope.SingleNode)
-            : this(
-        if (paths.isEmpty()) listOf(null) else paths.toList(),
-        scope = scope
-    )
+    constructor(vararg paths: String?, scope: NodeConfig.Scope = NodeConfig.Scope.SingleNode) :
+        this(
+            if (paths.isEmpty()) listOf(null) else paths.toList(),
+            scope = scope
+        )
 }
 
 /**
@@ -345,11 +356,13 @@ class NodeConfig {
      * a default value will be provided.
      */
     @JvmOverloads
-    constructor(name: String?,
-                options: MutableMap<OptionKey, Config> = mutableMapOf(),
-                subtreeOptions: MutableMap<OptionKey, Config>,
-                children: MutableSet<NodeConfig> = mutableSetOf(),
-                wildcardChildren: NodeConfig? = null) {
+    constructor(
+        name: String?,
+        options: MutableMap<OptionKey, Config> = mutableMapOf(),
+        subtreeOptions: MutableMap<OptionKey, Config>,
+        children: MutableSet<NodeConfig> = mutableSetOf(),
+        wildcardChildren: NodeConfig? = null
+    ) {
         // Validate subtreeOptions has every option defined
         val validatedSubtreeOptions = subtreeOptions.toMutableMap()
         OptionKey.values().forEach { key ->
@@ -415,9 +428,9 @@ class NodeConfig {
      * Determines if two `NodeConfig` instances are equal based on their properties.
      */
     override fun equals(other: Any?): Boolean = other is NodeConfig &&
-            name == other.name &&
-            options == other.options &&
-            subtreeOptions == other.subtreeOptions
+        name == other.name &&
+        options == other.options &&
+        subtreeOptions == other.subtreeOptions
 
     /**
      * Generates a hash code for a `NodeConfig`.
@@ -785,7 +798,6 @@ class NodeConfig {
             listOf() // Return an empty list after logging the failure
         }
     }
-
 
     /**
      * Breaks a path string into its nested *object* segments. Any trailing *array* style access components are bundled with a

@@ -28,7 +28,7 @@ import java.util.concurrent.Executors
  * [Networking] conforming network service test helper utility class used for tests that require mocked
  * network requests and mocked responses.
  */
-class MockNetworkService: Networking {
+class MockNetworkService : Networking {
     private val helper = NetworkRequestHelper()
     /**
      * Flag that indicates if the [connectAsync] method was called.
@@ -134,7 +134,8 @@ class MockNetworkService: Networking {
             TestableNetworkRequest(
                 url,
                 method
-            ), responseConnection
+            ),
+            responseConnection
         )
     }
 
@@ -154,7 +155,8 @@ class MockNetworkService: Networking {
             TestableNetworkRequest(
                 url,
                 method
-            ), expectedCount
+            ),
+            expectedCount
         )
     }
 
@@ -198,9 +200,10 @@ class MockNetworkService: Networking {
      */
     @Throws(InterruptedException::class)
     @JvmOverloads
-    fun getNetworkRequestsWith(url: String,
-                               method: HttpMethod,
-                               timeoutMillis: Int = TestConstants.Defaults.WAIT_NETWORK_REQUEST_TIMEOUT_MS
+    fun getNetworkRequestsWith(
+        url: String,
+        method: HttpMethod,
+        timeoutMillis: Int = TestConstants.Defaults.WAIT_NETWORK_REQUEST_TIMEOUT_MS
     ): List<NetworkRequest> {
         return helper.getNetworkRequestsWith(url, method, timeoutMillis)
     }

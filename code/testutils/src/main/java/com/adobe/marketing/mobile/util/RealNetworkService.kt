@@ -23,7 +23,7 @@ import org.junit.Assert.fail
  * An override of `NetworkService` used for tests that require real outgoing network requests. Provides
  * methods to set expectations on network requests and perform assertions against those expectations.
  */
-class RealNetworkService: NetworkServiceHelper() {
+class RealNetworkService : NetworkServiceHelper() {
     private val helper = NetworkRequestHelper()
     /**
      * Flag that indicates if the [connectAsync] method was called.

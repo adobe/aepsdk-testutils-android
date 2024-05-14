@@ -14,8 +14,8 @@ package com.adobe.marketing.mobile.util
 import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
-import org.junit.Assert.fail
 import org.junit.Assert.assertEquals
+import org.junit.Assert.fail
 
 object JSONAsserts {
     /**
@@ -32,14 +32,16 @@ object JSONAsserts {
             return
         }
         if (expected == null || actual == null) {
-            fail("""
+            fail(
+                """
                 ${if (expected == null) "Expected is null" else "Actual is null"} and 
                 ${if (expected == null) "Actual" else "Expected"} is non-null.
         
-                Expected: ${expected.toString()}
+                Expected: $expected
         
-                Actual: ${actual.toString()}
-            """.trimIndent())
+                Actual: $actual
+                """.trimIndent()
+            )
             return
         }
         // Exact equality is just a special case of exact match
@@ -437,21 +439,23 @@ object JSONAsserts {
         }
         if (actual == null || actual == JSONObject.NULL) {
             if (shouldAssert) {
-                fail("""
+                fail(
+                    """
                     Expected JSON is non-nil but Actual JSON is nil.
                     Expected: $expected
                     Actual: $actual
                     Key path: ${keyPathAsString(keyPath)}
-                """.trimIndent())
+                    """.trimIndent()
+                )
             }
             return false
         }
 
         return when {
             expected is String && actual is String ||
-                    expected is Boolean && actual is Boolean ||
-                    expected is Int && actual is Int ||
-                    expected is Double && actual is Double -> {
+                expected is Boolean && actual is Boolean ||
+                expected is Int && actual is Int ||
+                expected is Double && actual is Double -> {
                 if (nodeTree.primitiveExactMatch.isActive) {
                     if (shouldAssert) assertEquals(
                         "Key path: ${keyPathAsString(keyPath)}",
@@ -483,9 +487,10 @@ object JSONAsserts {
                         """
                     Expected and Actual types do not match.
                     Expected: $expected
-                    Actual: ${actual}
+                    Actual: $actual
                     Key path: ${keyPathAsString(keyPath)}
-                """.trimIndent())
+                        """.trimIndent()
+                    )
                 }
                 false
             }
@@ -515,7 +520,8 @@ object JSONAsserts {
         }
         if (actual == null) {
             if (shouldAssert) {
-                fail("""
+                fail(
+                    """
                 Expected JSON is non-nil but Actual JSON is nil.
     
                 Expected: $expected
@@ -523,7 +529,8 @@ object JSONAsserts {
                 Actual: $actual
     
                 Key path: ${keyPathAsString(keyPath)}
-                """.trimIndent())
+                    """.trimIndent()
+                )
             }
             return false
         }
@@ -531,7 +538,8 @@ object JSONAsserts {
         if (nodeTree.collectionEqualCount.isActive) {
             if (expected.length() != actual.length()) {
                 if (shouldAssert) {
-                    fail("""
+                    fail(
+                        """
                     Expected JSON count does not match Actual JSON.
 
                     Expected count: ${expected.length()}
@@ -542,13 +550,15 @@ object JSONAsserts {
                     Actual: $actual
 
                     Key path: ${keyPathAsString(keyPath)}
-                """.trimIndent())
+                        """.trimIndent()
+                    )
                 }
                 return false
             }
         } else if (expected.length() > actual.length()) {
             if (shouldAssert) {
-                fail("""
+                fail(
+                    """
                 Expected JSON has more elements than Actual JSON.
 
                 Expected count: ${expected.length()}
@@ -559,7 +569,8 @@ object JSONAsserts {
                 Actual: $actual
 
                 Key path: ${keyPathAsString(keyPath)}
-            """.trimIndent())
+                    """.trimIndent()
+                )
             }
             return false
         }
@@ -609,7 +620,8 @@ object JSONAsserts {
             }
             if (actualIndex == null) {
                 if (shouldAssert) {
-                    fail("""
+                    fail(
+                        """
                     Wildcard ${if (NodeConfig.resolveOption(NodeConfig.OptionKey.PrimitiveExactMatch, nodeTree.getChild(index), nodeTree).isActive) "exact" else "type"}
                     match found no matches on Actual side satisfying the Expected requirement.
             
@@ -620,14 +632,14 @@ object JSONAsserts {
                     Actual (remaining unmatched elements): ${availableWildcardActualIndexes.map { actual[it.toInt()] }}
             
                     Key path: ${keyPathAsString(keyPath)}
-                """.trimIndent())
+                        """.trimIndent()
+                    )
                 }
                 validationResult = false
                 break
             } else {
                 availableWildcardActualIndexes.remove(actualIndex)
             }
-
         }
         return validationResult
     }
@@ -655,7 +667,8 @@ object JSONAsserts {
         }
         if (actual == null) {
             if (shouldAssert) {
-                fail("""
+                fail(
+                    """
                     Expected JSON is non-nil but Actual JSON is nil.
         
                     Expected: $expected
@@ -663,7 +676,8 @@ object JSONAsserts {
                     Actual: $actual
         
                     Key path: ${keyPathAsString(keyPath)}
-                """.trimIndent())
+                    """.trimIndent()
+                )
             }
             return false
         }
@@ -671,7 +685,8 @@ object JSONAsserts {
         if (nodeTree.collectionEqualCount.isActive) {
             if (expected.length() != actual.length()) {
                 if (shouldAssert) {
-                    fail("""
+                    fail(
+                        """
                     Expected JSON count does not match Actual JSON.
 
                     Expected count: ${expected.length()}
@@ -682,13 +697,15 @@ object JSONAsserts {
                     Actual: $actual
 
                     Key path: ${keyPathAsString(keyPath)}
-                """.trimIndent())
+                        """.trimIndent()
+                    )
                 }
                 return false
             }
         } else if (expected.length() > actual.length()) {
             if (shouldAssert) {
-                fail("""
+                fail(
+                    """
                 Expected JSON has more elements than Actual JSON.
 
                 Expected count: ${expected.length()}
@@ -699,7 +716,8 @@ object JSONAsserts {
                 Actual: $actual
 
                 Key path: ${keyPathAsString(keyPath)}
-            """.trimIndent())
+                    """.trimIndent()
+                )
             }
             return false
         }
@@ -719,7 +737,6 @@ object JSONAsserts {
         }
         return validationResult
     }
-
 
     /**
      * Validates the provided `actual` value against a specified `nodeTree` configuration.
@@ -821,13 +838,15 @@ object JSONAsserts {
             // Check for keys that must be absent in the current node
             val resolvedKeyMustBeAbsent = NodeConfig.resolveOption(NodeConfig.OptionKey.KeyMustBeAbsent, nodeTree.getChild(key), nodeTree)
             if (resolvedKeyMustBeAbsent.isActive) {
-                fail("""
+                fail(
+                    """
                 Actual JSON should not have key with name: $key
 
                 Actual: $actualValues
 
                 Key path: ${keyPathAsString(keyPath + listOf(key))}
-            """.trimIndent())
+                    """.trimIndent()
+                )
                 validationResult = false
             }
             validationResult = validateActual(
@@ -937,10 +956,10 @@ object JSONAsserts {
             }
             is String -> {
                 try {
-                    JSONObject(obj)  // Attempt to parse as JSONObject first.
+                    JSONObject(obj) // Attempt to parse as JSONObject first.
                 } catch (e: JSONException) {
                     try {
-                        JSONArray(obj)  // Attempt to parse as JSONArray if JSONObject fails.
+                        JSONArray(obj) // Attempt to parse as JSONArray if JSONObject fails.
                     } catch (e: JSONException) {
                         throw IllegalArgumentException("Failed to convert to JSON representation: Invalid JSON string '$obj'")
                     }
@@ -951,4 +970,3 @@ object JSONAsserts {
     }
     // endregion
 }
-

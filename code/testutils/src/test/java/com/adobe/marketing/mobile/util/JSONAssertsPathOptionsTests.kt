@@ -8,12 +8,13 @@
   OF ANY KIND, either express or implied. See the License for the specific language
   governing permissions and limitations under the License.
 */
+
 package com.adobe.marketing.mobile.util
 
 import com.adobe.marketing.mobile.util.JSONAsserts.assertExactMatch
 import com.adobe.marketing.mobile.util.JSONAsserts.assertTypeMatch
-import com.adobe.marketing.mobile.util.NodeConfig.Scope.Subtree
 import com.adobe.marketing.mobile.util.NodeConfig.Scope.SingleNode
+import com.adobe.marketing.mobile.util.NodeConfig.Scope.Subtree
 import org.junit.Test
 import kotlin.test.assertFailsWith
 
