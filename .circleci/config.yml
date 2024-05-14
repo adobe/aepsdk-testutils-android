@@ -13,8 +13,8 @@
 version: 2.1
 orbs:
   # Use the circleci android orb version that supports OpenJDK17 required by AGP 8.2+
-  android: circleci/android@2.4.0
-  codecov: codecov/codecov@4.0.1
+  android: circleci/android@2.5.0
+  codecov: codecov/codecov@4.1.0
 
 parameters:
   gradle-cache-prefix:
