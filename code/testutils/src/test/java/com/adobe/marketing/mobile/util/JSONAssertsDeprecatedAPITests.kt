@@ -11,7 +11,7 @@
 
 package com.adobe.marketing.mobile.util
 
-import com.adobe.marketing.mobile.util.JSONAsserts.assertEqual
+import com.adobe.marketing.mobile.util.JSONAsserts.assertEquals
 import com.adobe.marketing.mobile.util.JSONAsserts.assertExactMatch
 import com.adobe.marketing.mobile.util.JSONAsserts.assertTypeMatch
 import org.json.JSONArray
@@ -28,7 +28,7 @@ class JSONAssertsDeprecatedAPITests {
         val expected = null
         val actual = null
 
-        assertEqual(expected, actual)
+        assertEquals(expected, actual)
     }
 
     // Alternate path tests - assertEqual does not handle alternate paths and is not tested here

@@ -27,7 +27,7 @@ object JSONAsserts {
      * @throws AssertionError If the [expected] and [actual] JSON structures are not exactly equal.
      */
     @JvmStatic
-    fun assertEqual(expected: Any?, actual: Any?) {
+    fun assertEquals(expected: Any?, actual: Any?) {
         if (expected == null && actual == null) {
             return
         }

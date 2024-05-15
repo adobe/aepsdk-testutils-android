@@ -11,7 +11,7 @@
 
 package com.adobe.marketing.mobile.util
 
-import com.adobe.marketing.mobile.util.JSONAsserts.assertEqual
+import com.adobe.marketing.mobile.util.JSONAsserts.assertEquals
 import com.adobe.marketing.mobile.util.JSONAsserts.assertExactMatch
 import com.adobe.marketing.mobile.util.JSONAsserts.assertTypeMatch
 import org.json.JSONArray
@@ -91,7 +91,7 @@ class JSONAssertsParameterizedTests {
 
         @Test
         fun `should match basic values`() {
-            assertEqual(params.expected, params.actual)
+            assertEquals(params.expected, params.actual)
             assertExactMatch(params.expected, params.actual)
             assertTypeMatch(params.expected, params.actual)
         }
@@ -124,7 +124,7 @@ class JSONAssertsParameterizedTests {
 
         @Test
         fun `should match basic values`() {
-            assertEqual(params.expected, params.actual)
+            assertEquals(params.expected, params.actual)
             assertExactMatch(params.expected, params.actual)
             assertTypeMatch(params.expected, params.actual)
         }
@@ -158,7 +158,7 @@ class JSONAssertsParameterizedTests {
 
         @Test
         fun `should match basic values`() {
-            assertEqual(params.expected, params.actual)
+            assertEquals(params.expected, params.actual)
             assertExactMatch(params.expected, params.actual)
             assertTypeMatch(params.expected, params.actual)
         }
@@ -185,7 +185,7 @@ class JSONAssertsParameterizedTests {
         @Test
         fun `should match only by type for values of the same type`() {
             Assert.assertThrows(AssertionError::class.java) {
-                assertEqual(params.expected, params.actual)
+                assertEquals(params.expected, params.actual)
             }
             Assert.assertThrows(AssertionError::class.java) {
                 assertExactMatch(params.expected, params.actual)
@@ -213,7 +213,7 @@ class JSONAssertsParameterizedTests {
         @Test
         fun `should pass flexible matching when expected is a subset`() {
             assertFailsWith<AssertionError>("Validation should fail when collection sizes are different.") {
-                assertEqual(params.expected, params.actual)
+                assertEquals(params.expected, params.actual)
             }
             assertExactMatch(params.expected, params.actual)
             assertTypeMatch(params.expected, params.actual)
@@ -262,7 +262,7 @@ class JSONAssertsParameterizedTests {
         @Test
         fun `should detect type mismatch or nullability issues`() {
             assertFailsWith<AssertionError>("Validation should fail when value types mismatch.") {
-                assertEqual(params.expected, params.actual)
+                assertEquals(params.expected, params.actual)
             }
             assertFailsWith<AssertionError>("Validation should fail when value types mismatch.") {
                 assertTypeMatch(params.expected, params.actual)
@@ -299,7 +299,7 @@ class JSONAssertsParameterizedTests {
 
         @Test
         fun `should handle special characters in JSON keys correctly`() {
-            assertEqual(params.expected, params.actual)
+            assertEquals(params.expected, params.actual)
             assertExactMatch(params.expected, params.actual)
             assertTypeMatch(params.expected, params.actual)
         }
@@ -489,7 +489,7 @@ class JSONAssertsParameterizedTests {
         @Test
         fun `should error on larger expected arrays`() {
             assertFailsWith<AssertionError>("Validation should fail when expected array is larger regardless of alternate paths.") {
-                assertEqual(params.expected, params.actual)
+                assertEquals(params.expected, params.actual)
             }
             assertFailsWith<AssertionError>("Validation should fail when exact matching is enforced with larger expected arrays.") {
                 assertExactMatch(params.expected, params.actual, ValueTypeMatch(keyPaths))
@@ -526,7 +526,7 @@ class JSONAssertsParameterizedTests {
         @Test
         fun `should error on larger expected maps`() {
             Assert.assertThrows(AssertionError::class.java) {
-                assertEqual(params.expected, params.actual)
+                assertEquals(params.expected, params.actual)
             }
             Assert.assertThrows(AssertionError::class.java) {
                 assertExactMatch(params.expected, params.actual, ValueTypeMatch(keyPaths))
