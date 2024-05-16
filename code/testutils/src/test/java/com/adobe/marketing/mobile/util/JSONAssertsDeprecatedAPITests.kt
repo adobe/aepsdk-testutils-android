@@ -18,6 +18,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.assertThrows
 import org.junit.Test
+
 class JSONAssertsDeprecatedAPITests {
     // Value matching validation
     /**

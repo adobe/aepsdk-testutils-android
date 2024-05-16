@@ -11,6 +11,7 @@
 
 package com.adobe.marketing.mobile.util
 
+import androidx.annotation.VisibleForTesting
 import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
@@ -485,10 +486,10 @@ object JSONAsserts {
                 if (shouldAssert) {
                     fail(
                         """
-                    Expected and Actual types do not match.
-                    Expected: $expected
-                    Actual: $actual
-                    Key path: ${keyPathAsString(keyPath)}
+                        Expected and Actual types do not match.
+                        Expected: $expected (Type: ${expected::class.qualifiedName})
+                        Actual: $actual (Type: ${actual::class.qualifiedName})
+                        Key path: ${keyPathAsString(keyPath)}
                         """.trimIndent()
                     )
                 }
@@ -672,7 +673,7 @@ object JSONAsserts {
                     Expected JSON is non-nil but Actual JSON is nil.
         
                     Expected: $expected
-        
+                    
                     Actual: $actual
         
                     Key path: ${keyPathAsString(keyPath)}
@@ -928,32 +929,22 @@ object JSONAsserts {
         return result
     }
 
-    private fun getJSONRepresentation(obj: Any?): Any? {
+    /**
+     * Converts the given object to its JSON representation.
+     *
+     * This method handles various types of input including null, strings representing JSON objects or arrays,
+     * maps, lists, and arrays. Null values within maps, lists, and arrays are replaced with `JSONObject.NULL`.
+     * All other inputs throw an exception.
+     *
+     * @param obj the object to be converted to JSON representation. Can be null, a JSON string, JSONObject, JSONArray,
+     * a map, a list, or an array.
+     * @return the JSON representation of the given object. Can be a `JSONObject`, `JSONArray`, or null if null was the input.
+     * @throws IllegalArgumentException if the input string is an invalid JSON string or if the input type is unsupported.
+     */
+    @VisibleForTesting
+    fun getJSONRepresentation(obj: Any?): Any? {
         return when (obj) {
             null -> null
-            is JSONObject, is JSONArray -> obj
-            is Map<*, *> -> {
-                try {
-                    // Validate all strings are keys before trying to convert to JSON
-                    if (obj.keys.all { it is String }) {
-                        JSONObject(obj as Map<String, Any?>)
-                    } else {
-                        throw IllegalArgumentException("Failed to convert to JSON representation: Invalid JSON dictionary keys. Keys must be strings. Found: ${obj.keys}")
-                    }
-                } catch (e: Exception) {
-                    throw IllegalArgumentException("Failed to create JSONObject: $obj, with reason: ${e.message}")
-                }
-            }
-            is List<*> -> try {
-                JSONArray(obj)
-            } catch (e: Exception) {
-                throw IllegalArgumentException("Failed to create JSONArray from List: $obj, with reason: ${e.message}")
-            }
-            is Array<*> -> try {
-                JSONArray(obj.toList())
-            } catch (e: Exception) {
-                throw IllegalArgumentException("Failed to create JSONArray from Array: $obj, with reason: ${e.message}")
-            }
             is String -> {
                 try {
                     JSONObject(obj) // Attempt to parse as JSONObject first.
@@ -965,7 +956,57 @@ object JSONAsserts {
                     }
                 }
             }
-            else -> IllegalArgumentException("Failed to convert to JSON representation: $obj, with reason: Unsupported type ${obj.javaClass.kotlin}")
+            is JSONObject, is JSONArray, is Map<*, *>, is List<*>, is Array<*> -> recursiveJSONRepresentation(obj)
+            else -> throw IllegalArgumentException("Failed to convert to JSON representation: $obj, with reason: Unsupported type ${obj.javaClass.kotlin}")
+        }
+    }
+
+    /**
+     * Recursively converts the given object to its JSON representation.
+     *
+     * This method handles nested structures like maps, lists, and arrays, replacing null values with `JSONObject.NULL`.
+     * Basic types such as strings, numbers, and booleans are returned as-is.
+     *
+     * @param obj the object to be converted to JSON representation. Can be null, a `JSONObject`, a `JSONArray`, a map,
+     *            a list, an array, or a basic type (string, number, boolean).
+     * @return the JSON representation of the given object. Can be a `JSONObject`, `JSONArray`, or a basic type.
+     * @throws IllegalArgumentException if the input map contains non-string keys or if the input type is unsupported.
+     */
+    private fun recursiveJSONRepresentation(obj: Any?): Any? {
+        return when (obj) {
+            null -> JSONObject.NULL
+            is JSONObject, is JSONArray -> obj
+            is Map<*, *> -> {
+                try {
+                    // Validate all strings are keys before trying to convert to JSON
+                    if (obj.keys.all { it is String }) {
+                        // Create a new map where null values are replaced with JSONObject.NULL
+                        // and other values are recursively processed
+                        val updatedMap = obj.mapValues { entry ->
+                            if (entry.value == null) JSONObject.NULL else recursiveJSONRepresentation(entry.value)
+                        }
+                        JSONObject(updatedMap)
+                    } else {
+                        throw IllegalArgumentException("Failed to convert to JSON representation: Invalid JSON dictionary keys. Keys must be strings. Found: ${obj.keys}")
+                    }
+                } catch (e: Exception) {
+                    throw IllegalArgumentException("Failed to create JSONObject: $obj, with reason: ${e.message}")
+                }
+            }
+            is List<*> -> try {
+                // Recursively process each element in the list
+                JSONArray(obj.map { recursiveJSONRepresentation(it) })
+            } catch (e: Exception) {
+                throw IllegalArgumentException("Failed to create JSONArray from List: $obj, with reason: ${e.message}")
+            }
+            is Array<*> -> try {
+                // Convert array to list and recursively process each element
+                JSONArray(obj.map { recursiveJSONRepresentation(it) })
+            } catch (e: Exception) {
+                throw IllegalArgumentException("Failed to create JSONArray from Array: $obj, with reason: ${e.message}")
+            }
+            is String, is Number, is Boolean -> obj
+            else -> throw IllegalArgumentException("Failed to convert to JSON representation: $obj, with reason: Unsupported type ${obj.javaClass.kotlin}")
         }
     }
     // endregion
