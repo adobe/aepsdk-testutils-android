@@ -96,6 +96,141 @@ class JSONAssertsHelpersTests {
         assertEquals("value2", jsonArray.getString(2))
     }
 
+    // region - Nested collection tests
+    @Test
+    fun testNestedMapToListWithNullValue() {
+        val input = mapOf(
+            "key1" to listOf("value1", null, "value2")
+        )
+        val expected = JSONObject(
+            mapOf(
+                "key1" to JSONArray(listOf("value1", JSONObject.NULL, "value2"))
+            )
+        )
+        val result = JSONAsserts.getJSONRepresentation(input)
+        assertEquals(expected.toString(), result.toString())
+    }
+
+    @Test
+    fun testNestedMapToArrayWithNullValue() {
+        val input = mapOf(
+            "key1" to arrayOf("value1", null, "value2")
+        )
+        val expected = JSONObject(
+            mapOf(
+                "key1" to JSONArray(listOf("value1", JSONObject.NULL, "value2"))
+            )
+        )
+        val result = JSONAsserts.getJSONRepresentation(input)
+        assertEquals(expected.toString(), result.toString())
+    }
+
+    @Test
+    fun testNestedArrayToMapWithNullValue() {
+        val input = arrayOf(
+            mapOf("key1" to "value1", "key2" to null)
+        )
+        val expected = JSONArray(
+            listOf(
+                JSONObject(
+                    mapOf("key1" to "value1", "key2" to JSONObject.NULL)
+                )
+            )
+        )
+        val result = JSONAsserts.getJSONRepresentation(input)
+        assertEquals(expected.toString(), result.toString())
+    }
+
+    @Test
+    fun testNestedListToMapWithNullValue() {
+        val input = listOf(
+            mapOf("key1" to "value1", "key2" to null)
+        )
+        val expected = JSONArray(
+            listOf(
+                JSONObject(
+                    mapOf("key1" to "value1", "key2" to JSONObject.NULL)
+                )
+            )
+        )
+        val result = JSONAsserts.getJSONRepresentation(input)
+        assertEquals(expected.toString(), result.toString())
+    }
+
+    @Test
+    fun testNestedArrayToListWithNullValue() {
+        val input = arrayOf(
+            listOf("value1", null, "value2")
+        )
+        val expected = JSONArray(
+            listOf(
+                JSONArray(listOf("value1", JSONObject.NULL, "value2"))
+            )
+        )
+        val result = JSONAsserts.getJSONRepresentation(input)
+        assertEquals(expected.toString(), result.toString())
+    }
+
+    @Test
+    fun testNestedListToArrayWithNullValue() {
+        val input = listOf(
+            arrayOf("value1", null, "value2")
+        )
+        val expected = JSONArray(
+            listOf(
+                JSONArray(listOf("value1", JSONObject.NULL, "value2"))
+            )
+        )
+        val result = JSONAsserts.getJSONRepresentation(input)
+        assertEquals(expected.toString(), result.toString())
+    }
+
+    @Test
+    fun testNestedMapWithinMapWithNullValue() {
+        val input = mapOf(
+            "key1" to mapOf("nestedKey1" to "value1", "nestedKey2" to null)
+        )
+        val expected = JSONObject(
+            mapOf(
+                "key1" to JSONObject(
+                    mapOf("nestedKey1" to "value1", "nestedKey2" to JSONObject.NULL)
+                )
+            )
+        )
+        val result = JSONAsserts.getJSONRepresentation(input)
+        assertEquals(expected.toString(), result.toString())
+    }
+
+    @Test
+    fun testNestedListWithinListWithNullValue() {
+        val input = listOf(
+            listOf("value1", null, "value2")
+        )
+        val expected = JSONArray(
+            listOf(
+                JSONArray(listOf("value1", JSONObject.NULL, "value2"))
+            )
+        )
+        val result = JSONAsserts.getJSONRepresentation(input)
+        assertEquals(expected.toString(), result.toString())
+    }
+
+    @Test
+    fun testNestedArrayWithinArrayWithNullValue() {
+        val input = arrayOf(
+            arrayOf("value1", null, "value2")
+        )
+        val expected = JSONArray(
+            listOf(
+                JSONArray(listOf("value1", JSONObject.NULL, "value2"))
+            )
+        )
+        val result = JSONAsserts.getJSONRepresentation(input)
+        assertEquals(expected.toString(), result.toString())
+    }
+    // endregion - Nested collection tests
+
+    // region - Invalid input tests
     @Test(expected = IllegalArgumentException::class)
     fun testJSONRepresentation_whenValueIsNotJSONString_shouldThrowException() {
         val value = "simple string"
@@ -119,4 +254,5 @@ class JSONAssertsHelpersTests {
         val value = Any() // Unsupported type
         JSONAsserts.getJSONRepresentation(value)
     }
+    // endregion - Invalid input tests
 }
