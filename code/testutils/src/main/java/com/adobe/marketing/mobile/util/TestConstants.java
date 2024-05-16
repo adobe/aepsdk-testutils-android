@@ -80,11 +80,14 @@ public class TestConstants {
 		private EventDataKey() {}
 	}
 
-	public static class DataStoreKeys {
+	public static class DataStoreKey {
 
+		public static final String CONFIG_DATASTORE = "AdobeMobile_ConfigState";
+		public static final String IDENTITY_DATASTORE = "com.adobe.edge.identity";
+		public static final String IDENTITY_DIRECT_DATASTORE = "visitorIDServiceDataStore";
 		public static final String STORE_PAYLOADS = "storePayloads";
 
-		private DataStoreKeys() {}
+		private DataStoreKey() {}
 	}
 
 	public static class SharedState {
