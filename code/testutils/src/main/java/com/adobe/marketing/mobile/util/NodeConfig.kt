@@ -24,6 +24,16 @@ import java.util.regex.Pattern
  */
 interface MultiPathConfig {
     /**
+     * A Boolean value indicating whether the configuration is active.
+     */
+    val config: NodeConfig.Config
+
+    /**
+     * A `NodeConfig.Scope` value defining the scope of the configuration, such as whether it is applied to a single node or a subtree.
+     */
+    val scope: NodeConfig.Scope
+
+    /**
      * An array of optional strings representing the paths to be configured.
      * Each string in the array represents a distinct path. `null` indicates the top-level object.
      */
@@ -33,16 +43,6 @@ interface MultiPathConfig {
      * A `NodeConfig.OptionKey` value that specifies the type of option applied to the paths.
      */
     val optionKey: NodeConfig.OptionKey
-
-    /**
-     * A Boolean value indicating whether the configuration is active.
-     */
-    val config: NodeConfig.Config
-
-    /**
-     * A `NodeConfig.Scope` value defining the scope of the configuration, such as whether it is applied to a single node or a subtree.
-     */
-    val scope: NodeConfig.Scope
 }
 
 /**
@@ -53,16 +53,6 @@ interface MultiPathConfig {
  */
 data class PathConfig(
     /**
-     * An optional String representing the path to be configured. `null` indicates the top-level object.
-     */
-    var path: String?,
-
-    /**
-     * A `NodeConfig.OptionKey` value that specifies the type of option applied to the path.
-     */
-    var optionKey: NodeConfig.OptionKey,
-
-    /**
      * A Boolean value indicating whether the configuration is active.
      */
     var config: NodeConfig.Config,
@@ -70,7 +60,17 @@ data class PathConfig(
     /**
      * A `NodeConfig.Scope` value defining the scope of the configuration, such as whether it is applied to a single node or a subtree.
      */
-    var scope: NodeConfig.Scope
+    var scope: NodeConfig.Scope,
+
+    /**
+     * An optional String representing the path to be configured. `null` indicates the top-level object.
+     */
+    var path: String?,
+
+    /**
+     * A `NodeConfig.OptionKey` value that specifies the type of option applied to the path.
+     */
+    var optionKey: NodeConfig.OptionKey
 )
 
 /**
@@ -78,61 +78,61 @@ data class PathConfig(
  * When combining any position option indexes and standard indexes, standard indexes are validated first.
  */
 data class AnyOrderMatch(
-    override val paths: List<String?> = listOf(null),
-    override val optionKey: NodeConfig.OptionKey = NodeConfig.OptionKey.AnyOrderMatch,
     override val config: NodeConfig.Config = NodeConfig.Config(isActive = true),
-    override val scope: NodeConfig.Scope = NodeConfig.Scope.SingleNode
+    override val scope: NodeConfig.Scope = NodeConfig.Scope.SingleNode,
+    override val paths: List<String?> = listOf(null),
+    override val optionKey: NodeConfig.OptionKey = NodeConfig.OptionKey.AnyOrderMatch
 ) : MultiPathConfig {
     companion object {
         private val defaultPaths = listOf(null)
         private val defaultScope = NodeConfig.Scope.SingleNode
     }
 
-    // Secondary constructor permutations are explicitly defined for Java compatibility
     /**
-     * Initializes a new instance with an array of paths.
+     * Initializes a new instance with the specified parameters.
      *
-     * @param paths An array of optional path strings.
      * @param isActive Boolean value indicating whether the configuration is active.
      * @param scope The scope of configuration, defaulting to single node.
+     * @param paths A list of optional path strings.
      */
-    constructor(paths: List<String?> = listOf(null), isActive: Boolean = true, scope: NodeConfig.Scope = NodeConfig.Scope.SingleNode) :
-        this(paths, config = NodeConfig.Config(isActive = isActive), scope = scope)
+    constructor(isActive: Boolean = true, scope: NodeConfig.Scope = NodeConfig.Scope.SingleNode, paths: List<String?> = defaultPaths) :
+        this(NodeConfig.Config(isActive = isActive), scope, paths)
 
-    constructor(isActive: Boolean = true, scope: NodeConfig.Scope = NodeConfig.Scope.SingleNode) :
-        this(defaultPaths, isActive, scope)
+    // Secondary constructor permutations are explicitly defined for Java compatibility
+    constructor(isActive: Boolean, paths: List<String?>) :
+        this(isActive, defaultScope, paths)
 
-    constructor(paths: List<String?>, scope: NodeConfig.Scope) :
-        this(paths, true, scope)
+    constructor(scope: NodeConfig.Scope, paths: List<String?>) :
+        this(true, scope, paths)
 
-    constructor(paths: List<String?>, isActive: Boolean) :
-        this(paths, isActive, defaultScope)
-
-    constructor(paths: List<String?>) :
-        this(paths, true)
+    constructor(isActive: Boolean, scope: NodeConfig.Scope) :
+        this(isActive, scope, defaultPaths)
 
     constructor(isActive: Boolean) :
-        this(defaultPaths, isActive)
+        this(isActive, defaultPaths)
 
     constructor(scope: NodeConfig.Scope) :
-        this(defaultPaths, scope)
+        this(scope, defaultPaths)
+
+    constructor(paths: List<String?>) :
+        this(defaultScope, paths)
 
     // Variadic initializers rely on their List<*> constructor counterparts
     /**
      * Variadic initializer allowing multiple string paths.
      *
-     * @param paths Vararg of optional path strings.
      * @param isActive Boolean value indicating whether the configuration is active.
      * @param scope The scope of configuration, defaulting to single node.
+     * @param paths Vararg of optional path strings.
      */
-    constructor(vararg paths: String?, isActive: Boolean = true, scope: NodeConfig.Scope = NodeConfig.Scope.SingleNode) :
-        this(if (paths.isEmpty()) defaultPaths else paths.toList(), isActive, scope)
+    constructor(isActive: Boolean = true, scope: NodeConfig.Scope = NodeConfig.Scope.SingleNode, vararg paths: String?) :
+        this(isActive, scope, if (paths.isEmpty()) defaultPaths else paths.toList())
 
-    constructor(vararg paths: String?, scope: NodeConfig.Scope) :
-        this(if (paths.isEmpty()) defaultPaths else paths.toList(), scope)
+    constructor(isActive: Boolean, vararg paths: String?) :
+        this(isActive, if (paths.isEmpty()) defaultPaths else paths.toList())
 
-    constructor(vararg paths: String?, isActive: Boolean) :
-        this(if (paths.isEmpty()) defaultPaths else paths.toList(), isActive)
+    constructor(scope: NodeConfig.Scope, vararg paths: String?) :
+        this(scope, if (paths.isEmpty()) defaultPaths else paths.toList())
 
     constructor(vararg paths: String?) :
         this(if (paths.isEmpty()) defaultPaths else paths.toList())
@@ -142,10 +142,10 @@ data class AnyOrderMatch(
  * Validation option which specifies: Collections (objects and/or arrays) must have the same number of elements.
  */
 data class CollectionEqualCount(
+    override val config: NodeConfig.Config = NodeConfig.Config(isActive = true),
+    override val scope: NodeConfig.Scope = NodeConfig.Scope.SingleNode,
     override val paths: List<String?> = listOf(null),
     override val optionKey: NodeConfig.OptionKey = NodeConfig.OptionKey.CollectionEqualCount,
-    override val config: NodeConfig.Config = NodeConfig.Config(isActive = true),
-    override val scope: NodeConfig.Scope = NodeConfig.Scope.SingleNode
 ) : MultiPathConfig {
     companion object {
         private val defaultPaths = listOf(null)
@@ -153,49 +153,50 @@ data class CollectionEqualCount(
     }
 
     /**
-     * Secondary constructor for initializing with a list of paths.
+     * Initializes a new instance with the specified parameters.
      *
-     * @param paths A list of optional path strings.
      * @param isActive Boolean value indicating whether the configuration is active.
      * @param scope The scope of configuration, defaulting to single node.
+     * @param paths A list of optional path strings.
      */
-    constructor(paths: List<String?> = listOf(null), isActive: Boolean = true, scope: NodeConfig.Scope = NodeConfig.Scope.SingleNode) :
-        this(paths, config = NodeConfig.Config(isActive = isActive), scope = scope)
+    constructor(isActive: Boolean = true, scope: NodeConfig.Scope = NodeConfig.Scope.SingleNode, paths: List<String?> = defaultPaths) :
+        this(NodeConfig.Config(isActive = isActive), scope, paths)
 
-    constructor(isActive: Boolean = true, scope: NodeConfig.Scope = NodeConfig.Scope.SingleNode) :
-        this(defaultPaths, isActive, scope)
+    // Secondary constructor permutations are explicitly defined for Java compatibility
+    constructor(isActive: Boolean, paths: List<String?>) :
+        this(isActive, defaultScope, paths)
 
-    constructor(paths: List<String?>, scope: NodeConfig.Scope) :
-        this(paths, true, scope)
+    constructor(scope: NodeConfig.Scope, paths: List<String?>) :
+        this(true, scope, paths)
 
-    constructor(paths: List<String?>, isActive: Boolean) :
-        this(paths, isActive, defaultScope)
-
-    constructor(paths: List<String?>) :
-        this(paths, true)
+    constructor(isActive: Boolean, scope: NodeConfig.Scope) :
+        this(isActive, scope, defaultPaths)
 
     constructor(isActive: Boolean) :
-        this(defaultPaths, isActive)
+        this(isActive, defaultPaths)
 
     constructor(scope: NodeConfig.Scope) :
-        this(defaultPaths, scope)
+        this(scope, defaultPaths)
+
+    constructor(paths: List<String?>) :
+        this(defaultScope, paths)
 
     // Variadic initializers rely on their List<*> constructor counterparts
     /**
      * Variadic initializer allowing multiple string paths.
      *
-     * @param paths Vararg of optional path strings.
      * @param isActive Boolean value indicating whether the configuration is active.
      * @param scope The scope of configuration, defaulting to single node.
+     * @param paths Vararg of optional path strings.
      */
-    constructor(vararg paths: String?, isActive: Boolean = true, scope: NodeConfig.Scope = NodeConfig.Scope.SingleNode) :
-        this(if (paths.isEmpty()) defaultPaths else paths.toList(), isActive, scope)
+    constructor(isActive: Boolean = true, scope: NodeConfig.Scope = NodeConfig.Scope.SingleNode, vararg paths: String?) :
+        this(isActive, scope, if (paths.isEmpty()) defaultPaths else paths.toList())
 
-    constructor(vararg paths: String?, scope: NodeConfig.Scope) :
-        this(if (paths.isEmpty()) defaultPaths else paths.toList(), scope)
+    constructor(isActive: Boolean, vararg paths: String?) :
+        this(isActive, if (paths.isEmpty()) defaultPaths else paths.toList())
 
-    constructor(vararg paths: String?, isActive: Boolean) :
-        this(if (paths.isEmpty()) defaultPaths else paths.toList(), isActive)
+    constructor(scope: NodeConfig.Scope, vararg paths: String?) :
+        this(scope, if (paths.isEmpty()) defaultPaths else paths.toList())
 
     constructor(vararg paths: String?) :
         this(if (paths.isEmpty()) defaultPaths else paths.toList())
@@ -205,10 +206,10 @@ data class CollectionEqualCount(
  * Validation option which specifies: `actual` must not have the key name specified.
  */
 data class KeyMustBeAbsent(
+    override val config: NodeConfig.Config = NodeConfig.Config(isActive = true),
+    override val scope: NodeConfig.Scope = NodeConfig.Scope.SingleNode,
     override val paths: List<String?> = listOf(null),
     override val optionKey: NodeConfig.OptionKey = NodeConfig.OptionKey.KeyMustBeAbsent,
-    override val config: NodeConfig.Config = NodeConfig.Config(isActive = true),
-    override val scope: NodeConfig.Scope = NodeConfig.Scope.SingleNode
 ) : MultiPathConfig {
     companion object {
         private val defaultPaths = listOf(null)
@@ -216,49 +217,50 @@ data class KeyMustBeAbsent(
     }
 
     /**
-     * Initializes a new instance with an array of paths.
+     * Initializes a new instance with the specified parameters.
      *
-     * @param paths A list of optional path strings, defaults to a list with a single null if no paths are provided.
      * @param isActive Boolean value indicating whether the configuration is active.
      * @param scope The scope of configuration, defaulting to single node.
+     * @param paths A list of optional path strings.
      */
-    constructor(paths: List<String?> = listOf(null), isActive: Boolean = true, scope: NodeConfig.Scope = NodeConfig.Scope.SingleNode) :
-        this(paths, config = NodeConfig.Config(isActive = isActive), scope = scope)
+    constructor(isActive: Boolean = true, scope: NodeConfig.Scope = NodeConfig.Scope.SingleNode, paths: List<String?> = defaultPaths) :
+        this(NodeConfig.Config(isActive = isActive), scope, paths)
 
-    constructor(isActive: Boolean = true, scope: NodeConfig.Scope = NodeConfig.Scope.SingleNode) :
-        this(defaultPaths, isActive, scope)
+    // Secondary constructor permutations are explicitly defined for Java compatibility
+    constructor(isActive: Boolean, paths: List<String?>) :
+        this(isActive, defaultScope, paths)
 
-    constructor(paths: List<String?>, scope: NodeConfig.Scope) :
-        this(paths, true, scope)
+    constructor(scope: NodeConfig.Scope, paths: List<String?>) :
+        this(true, scope, paths)
 
-    constructor(paths: List<String?>, isActive: Boolean) :
-        this(paths, isActive, defaultScope)
-
-    constructor(paths: List<String?>) :
-        this(paths, true)
+    constructor(isActive: Boolean, scope: NodeConfig.Scope) :
+        this(isActive, scope, defaultPaths)
 
     constructor(isActive: Boolean) :
-        this(defaultPaths, isActive)
+        this(isActive, defaultPaths)
 
     constructor(scope: NodeConfig.Scope) :
-        this(defaultPaths, scope)
+        this(scope, defaultPaths)
+
+    constructor(paths: List<String?>) :
+        this(defaultScope, paths)
 
     // Variadic initializers rely on their List<*> constructor counterparts
     /**
      * Variadic initializer allowing multiple string paths.
      *
-     * @param paths Vararg of optional path strings.
      * @param isActive Boolean value indicating whether the configuration is active.
      * @param scope The scope of configuration, defaulting to single node.
+     * @param paths Vararg of optional path strings.
      */
-    constructor(vararg paths: String?, isActive: Boolean = true, scope: NodeConfig.Scope = NodeConfig.Scope.SingleNode) :
-        this(if (paths.isEmpty()) defaultPaths else paths.toList(), isActive, scope)
+    constructor(isActive: Boolean = true, scope: NodeConfig.Scope = NodeConfig.Scope.SingleNode, vararg paths: String?) :
+        this(isActive, scope, if (paths.isEmpty()) defaultPaths else paths.toList())
 
-    constructor(vararg paths: String?, scope: NodeConfig.Scope) :
-        this(if (paths.isEmpty()) defaultPaths else paths.toList(), scope)
+    constructor(isActive: Boolean, vararg paths: String?) :
+        this(isActive, if (paths.isEmpty()) defaultPaths else paths.toList())
 
-    constructor(vararg paths: String?, isActive: Boolean) :
-        this(if (paths.isEmpty()) defaultPaths else paths.toList(), isActive)
+    constructor(scope: NodeConfig.Scope, vararg paths: String?) :
+        this(scope, if (paths.isEmpty()) defaultPaths else paths.toList())
 
     constructor(vararg paths: String?) :
         this(if (paths.isEmpty()) defaultPaths else paths.toList())
@@ -275,58 +277,41 @@ data class KeyMustBeAbsent(
  * @property scope Scope of the validation, indicating the extent of the data structure this rule applies to.
  */
 data class ValueExactMatch(
+    override val config: NodeConfig.Config = NodeConfig.Config(isActive = true),
+    override val scope: NodeConfig.Scope = NodeConfig.Scope.SingleNode,
     override val paths: List<String?> = listOf(null),
     override val optionKey: NodeConfig.OptionKey = NodeConfig.OptionKey.PrimitiveExactMatch,
-    override val config: NodeConfig.Config = NodeConfig.Config(isActive = true),
-    override val scope: NodeConfig.Scope = NodeConfig.Scope.SingleNode
 ) : MultiPathConfig {
     companion object {
         private val defaultPaths = listOf(null)
         private val defaultScope = NodeConfig.Scope.SingleNode
     }
+
     /**
-     * Secondary constructor for initializing with a list of paths.
+     * Initializes a new instance with the specified parameters.
      *
-     * @param paths A list of optional path strings, defaults to a list containing null if no paths are provided.
-     * @param scope The scope of configuration, typically single node or subtree.
+     * @param scope The scope of configuration, defaulting to single node.
+     * @param paths A list of optional path strings.
      */
-    constructor(paths: List<String?> = listOf(null), isActive: Boolean = true, scope: NodeConfig.Scope = NodeConfig.Scope.SingleNode) :
-        this(paths, config = NodeConfig.Config(isActive = isActive), scope = scope)
+    constructor(scope: NodeConfig.Scope = NodeConfig.Scope.SingleNode, paths: List<String?> = defaultPaths) :
+        this(NodeConfig.Config(isActive = true), scope, paths)
 
-    constructor(isActive: Boolean = true, scope: NodeConfig.Scope = NodeConfig.Scope.SingleNode) :
-        this(defaultPaths, isActive, scope)
-
-    constructor(paths: List<String?>, scope: NodeConfig.Scope) :
-        this(paths, true, scope)
-
-    constructor(paths: List<String?>, isActive: Boolean) :
-        this(paths, isActive, defaultScope)
+    // Secondary constructor permutations are explicitly defined for Java compatibility
+    constructor(scope: NodeConfig.Scope) :
+        this(scope, defaultPaths)
 
     constructor(paths: List<String?>) :
-        this(paths, true)
-
-    constructor(isActive: Boolean) :
-        this(defaultPaths, isActive)
-
-    constructor(scope: NodeConfig.Scope) :
-        this(defaultPaths, scope)
+        this(defaultScope, paths)
 
     // Variadic initializers rely on their List<*> constructor counterparts
     /**
      * Variadic initializer allowing multiple string paths.
      *
-     * @param paths Vararg of optional path strings.
-     * @param isActive Boolean value indicating whether the configuration is active.
      * @param scope The scope of configuration, defaulting to single node.
+     * @param paths Vararg of optional path strings.
      */
-    constructor(vararg paths: String?, isActive: Boolean = true, scope: NodeConfig.Scope = NodeConfig.Scope.SingleNode) :
-        this(if (paths.isEmpty()) defaultPaths else paths.toList(), isActive, scope)
-
-    constructor(vararg paths: String?, scope: NodeConfig.Scope) :
-        this(if (paths.isEmpty()) defaultPaths else paths.toList(), scope)
-
-    constructor(vararg paths: String?, isActive: Boolean) :
-        this(if (paths.isEmpty()) defaultPaths else paths.toList(), isActive)
+    constructor(scope: NodeConfig.Scope = NodeConfig.Scope.SingleNode, vararg paths: String?) :
+        this(scope, if (paths.isEmpty()) defaultPaths else paths.toList())
 
     constructor(vararg paths: String?) :
         this(if (paths.isEmpty()) defaultPaths else paths.toList())
@@ -336,58 +321,41 @@ data class ValueExactMatch(
  * Validation option which specifies: values must have the same type but their literal values can be different.
  */
 data class ValueTypeMatch(
+    override val config: NodeConfig.Config = NodeConfig.Config(isActive = false),
+    override val scope: NodeConfig.Scope = NodeConfig.Scope.SingleNode,
     override val paths: List<String?> = listOf(null),
     override val optionKey: NodeConfig.OptionKey = NodeConfig.OptionKey.PrimitiveExactMatch,
-    override val config: NodeConfig.Config = NodeConfig.Config(isActive = false),
-    override val scope: NodeConfig.Scope = NodeConfig.Scope.SingleNode
 ) : MultiPathConfig {
     companion object {
         private val defaultPaths = listOf(null)
         private val defaultScope = NodeConfig.Scope.SingleNode
     }
+
     /**
-     * Initializes a new instance with an array of paths.
+     * Initializes a new instance with the specified parameters.
      *
-     * @param paths A list of optional path strings, defaults to a list containing null if no paths are provided.
-     * @param scope The scope of configuration, typically single node or subtree.
+     * @param scope The scope of configuration, defaulting to single node.
+     * @param paths A list of optional path strings.
      */
-    constructor(paths: List<String?> = listOf(null), isActive: Boolean = false, scope: NodeConfig.Scope = NodeConfig.Scope.SingleNode) :
-        this(paths, config = NodeConfig.Config(isActive = isActive), scope = scope)
+    constructor(scope: NodeConfig.Scope = NodeConfig.Scope.SingleNode, paths: List<String?> = defaultPaths) :
+        this(NodeConfig.Config(isActive = false), scope, paths)
 
-    constructor(isActive: Boolean = false, scope: NodeConfig.Scope = NodeConfig.Scope.SingleNode) :
-        this(defaultPaths, isActive, scope)
-
-    constructor(paths: List<String?>, scope: NodeConfig.Scope) :
-        this(paths, false, scope)
-
-    constructor(paths: List<String?>, isActive: Boolean) :
-        this(paths, isActive, defaultScope)
+    // Secondary constructor permutations are explicitly defined for Java compatibility
+    constructor(scope: NodeConfig.Scope) :
+        this(scope, defaultPaths)
 
     constructor(paths: List<String?>) :
-        this(paths, false)
-
-    constructor(isActive: Boolean) :
-        this(defaultPaths, isActive)
-
-    constructor(scope: NodeConfig.Scope) :
-        this(defaultPaths, scope)
+        this(defaultScope, paths)
 
     // Variadic initializers rely on their List<*> constructor counterparts
     /**
      * Variadic initializer allowing multiple string paths.
      *
-     * @param paths Vararg of optional path strings.
-     * @param isActive Boolean value indicating whether the configuration is active.
      * @param scope The scope of configuration, defaulting to single node.
+     * @param paths Vararg of optional path strings.
      */
-    constructor(vararg paths: String?, isActive: Boolean = false, scope: NodeConfig.Scope = NodeConfig.Scope.SingleNode) :
-        this(if (paths.isEmpty()) defaultPaths else paths.toList(), isActive, scope)
-
-    constructor(vararg paths: String?, scope: NodeConfig.Scope) :
-        this(if (paths.isEmpty()) defaultPaths else paths.toList(), scope)
-
-    constructor(vararg paths: String?, isActive: Boolean) :
-        this(if (paths.isEmpty()) defaultPaths else paths.toList(), isActive)
+    constructor(scope: NodeConfig.Scope = NodeConfig.Scope.SingleNode, vararg paths: String?) :
+        this(scope, if (paths.isEmpty()) defaultPaths else paths.toList())
 
     constructor(vararg paths: String?) :
         this(if (paths.isEmpty()) defaultPaths else paths.toList())
