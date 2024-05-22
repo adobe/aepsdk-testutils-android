@@ -40,6 +40,14 @@ class MockNetworkService : Networking {
             // If this assumption changes, this flag logic needs to be updated.
             return helper.networkRequests.isNotEmpty()
         }
+    /**
+     * How many times the [connectAsync] method was called.
+     * Note that this property does not await and returns the value immediately.
+     */
+    val connectAsyncCalledTimes: Int
+        get() {
+            return helper.networkRequests.count()
+        }
     // Simulating the async network service
     private val executorService: ExecutorService = Executors.newCachedThreadPool()
 
