@@ -64,7 +64,7 @@ class RealNetworkService : NetworkServiceHelper() {
      * @see [setExpectationForNetworkRequest]
      * @see [assertAllNetworkRequestExpectations]
      */
-    fun getResponsesFor(request: NetworkRequest): List<HttpConnecting>? {
+    fun getResponsesFor(request: NetworkRequest): List<HttpConnecting?>? {
         return helper.getResponsesFor(request)
     }
 
