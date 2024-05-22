@@ -44,7 +44,7 @@ class MockNetworkService : Networking {
      * How many times the [connectAsync] method was called.
      * Note that this property does not await and returns the value immediately.
      */
-    val connectAsyncCalledTimes: Int
+    val connectAsyncCallCount: Int
         get() {
             return helper.networkRequests.count()
         }
