@@ -343,14 +343,14 @@ class JSONAssertsPathOptionsTests {
         }
         """
 
-        assertExactMatch(expected, actual, CollectionEqualCount(), CollectionEqualCount(isActive = false))
-        assertTypeMatch(expected, actual, CollectionEqualCount(), CollectionEqualCount(isActive = false))
+        assertExactMatch(expected, actual, CollectionEqualCount(), CollectionEqualCount(false))
+        assertTypeMatch(expected, actual, CollectionEqualCount(), CollectionEqualCount(false))
 
         assertFailsWith<AssertionError>("Validation should fail when path option is not satisfied") {
-            assertExactMatch(expected, actual, CollectionEqualCount(isActive = false), CollectionEqualCount())
+            assertExactMatch(expected, actual, CollectionEqualCount(false), CollectionEqualCount())
         }
         assertFailsWith<AssertionError>("Validation should fail when path option is not satisfied") {
-            assertTypeMatch(expected, actual, CollectionEqualCount(isActive = false), CollectionEqualCount())
+            assertTypeMatch(expected, actual, CollectionEqualCount(false), CollectionEqualCount())
         }
     }
 
@@ -372,14 +372,14 @@ class JSONAssertsPathOptionsTests {
         }
         """
 
-        assertExactMatch(expected, actual, CollectionEqualCount("key1"), CollectionEqualCount("key1", isActive = false))
-        assertTypeMatch(expected, actual, CollectionEqualCount("key1"), CollectionEqualCount("key1", isActive = false))
+        assertExactMatch(expected, actual, CollectionEqualCount("key1"), CollectionEqualCount(false, "key1"))
+        assertTypeMatch(expected, actual, CollectionEqualCount("key1"), CollectionEqualCount(false, "key1"))
 
         assertFailsWith<AssertionError>("Validation should fail when path option is not satisfied") {
-            assertExactMatch(expected, actual, CollectionEqualCount("key1", isActive = false), CollectionEqualCount("key1"))
+            assertExactMatch(expected, actual, CollectionEqualCount(false, "key1"), CollectionEqualCount("key1"))
         }
         assertFailsWith<AssertionError>("Validation should fail when path option is not satisfied") {
-            assertTypeMatch(expected, actual, CollectionEqualCount("key1", isActive = false), CollectionEqualCount("key1"))
+            assertTypeMatch(expected, actual, CollectionEqualCount(false, "key1"), CollectionEqualCount("key1"))
         }
     }
 
@@ -487,10 +487,10 @@ class JSONAssertsPathOptionsTests {
         val expected = "[1, [1]]"
         val actual = "[1, [2]]"
 
-        assertExactMatch(expected, actual, ValueTypeMatch(scope = Subtree))
+        assertExactMatch(expected, actual, ValueTypeMatch(Subtree))
 
         assertFailsWith<AssertionError>("Validation should fail when path option is not satisfied") {
-            assertTypeMatch(expected, actual, ValueExactMatch(scope = Subtree))
+            assertTypeMatch(expected, actual, ValueExactMatch(Subtree))
         }
     }
 
@@ -515,10 +515,10 @@ class JSONAssertsPathOptionsTests {
         }
         """
 
-        assertExactMatch(expected, actual, ValueTypeMatch(scope = Subtree))
+        assertExactMatch(expected, actual, ValueTypeMatch(Subtree))
 
         assertFailsWith<AssertionError>("Validation should fail when path option is not satisfied") {
-            assertTypeMatch(expected, actual, ValueExactMatch(scope = Subtree))
+            assertTypeMatch(expected, actual, ValueExactMatch(Subtree))
         }
     }
 
@@ -546,9 +546,9 @@ class JSONAssertsPathOptionsTests {
         """
 
         assertFailsWith<AssertionError>("Validation should fail when path option is not satisfied") {
-            assertExactMatch(expected, actual, ValueTypeMatch(scope = SingleNode))
+            assertExactMatch(expected, actual, ValueTypeMatch(SingleNode))
         }
-        assertTypeMatch(expected, actual, ValueExactMatch(scope = SingleNode))
+        assertTypeMatch(expected, actual, ValueExactMatch(SingleNode))
     }
 
     /**
@@ -560,9 +560,9 @@ class JSONAssertsPathOptionsTests {
         val actual = "[1, [2]]"
 
         assertFailsWith<AssertionError>("Validation should fail when path option is not satisfied") {
-            assertExactMatch(expected, actual, ValueTypeMatch(scope = SingleNode))
+            assertExactMatch(expected, actual, ValueTypeMatch(SingleNode))
         }
-        assertTypeMatch(expected, actual, ValueExactMatch(scope = SingleNode))
+        assertTypeMatch(expected, actual, ValueExactMatch(SingleNode))
     }
 
     /**
@@ -591,11 +591,11 @@ class JSONAssertsPathOptionsTests {
         }
         """
 
-        assertExactMatch(expected, actual, CollectionEqualCount(scope = Subtree), CollectionEqualCount("key0-0", isActive = false))
+        assertExactMatch(expected, actual, CollectionEqualCount(Subtree), CollectionEqualCount(false, "key0-0"))
 
         // Sanity check: Override without `SingleNode` should fail
         assertFailsWith<AssertionError>("Validation should fail when path option is not satisfied") {
-            assertExactMatch(expected, actual, CollectionEqualCount(scope = Subtree))
+            assertExactMatch(expected, actual, CollectionEqualCount(Subtree))
         }
     }
 
@@ -626,11 +626,11 @@ class JSONAssertsPathOptionsTests {
         }
         """
 
-        assertExactMatch(expected, actual, CollectionEqualCount(scope = Subtree), CollectionEqualCount("key0-0", isActive = false, scope = Subtree))
+        assertExactMatch(expected, actual, CollectionEqualCount(Subtree), CollectionEqualCount(false, Subtree, "key0-0"))
 
         // Sanity check: Override without `Subtree` should fail
         assertFailsWith<AssertionError>("Validation should fail when path option is not satisfied") {
-            assertExactMatch(expected, actual, CollectionEqualCount(scope = Subtree), CollectionEqualCount("key0-0", isActive = false))
+            assertExactMatch(expected, actual, CollectionEqualCount(Subtree), CollectionEqualCount(false, "key0-0"))
         }
     }
 
@@ -668,8 +668,8 @@ class JSONAssertsPathOptionsTests {
         }
         """
 
-        assertExactMatch(expected, actual, ValueTypeMatch(scope = Subtree), CollectionEqualCount(scope = Subtree))
-        assertExactMatch(expected, actual, CollectionEqualCount(scope = Subtree), ValueTypeMatch(scope = Subtree))
+        assertExactMatch(expected, actual, ValueTypeMatch(Subtree), CollectionEqualCount(Subtree))
+        assertExactMatch(expected, actual, CollectionEqualCount(Subtree), ValueTypeMatch(Subtree))
     }
 
     /**
@@ -706,8 +706,8 @@ class JSONAssertsPathOptionsTests {
         }
         """
 
-        assertExactMatch(expected, actual, ValueTypeMatch("key1.key2.key3", scope = Subtree), CollectionEqualCount(scope = Subtree))
-        assertExactMatch(expected, actual, CollectionEqualCount(scope = Subtree), ValueTypeMatch("key1.key2.key3", scope = Subtree))
+        assertExactMatch(expected, actual, ValueTypeMatch(Subtree, "key1.key2.key3"), CollectionEqualCount(Subtree))
+        assertExactMatch(expected, actual, CollectionEqualCount(Subtree), ValueTypeMatch(Subtree, "key1.key2.key3"))
     }
 
     /**
@@ -821,10 +821,10 @@ class JSONAssertsPathOptionsTests {
         ]
         """
 
-        assertExactMatch(expected, actual, ValueTypeMatch("[0]", "[1]", scope = Subtree))
+        assertExactMatch(expected, actual, ValueTypeMatch(Subtree, "[0]", "[1]"))
 
         assertFailsWith<AssertionError>("Validation should fail when path option is not satisfied") {
-            assertTypeMatch(expected, actual, ValueExactMatch("[0]", "[1]", scope = Subtree))
+            assertTypeMatch(expected, actual, ValueExactMatch(Subtree, "[0]", "[1]"))
         }
     }
 
@@ -875,23 +875,23 @@ class JSONAssertsPathOptionsTests {
         }
         """
 
-        assertExactMatch(expected, actual, ValueTypeMatch("key0-0", "key0-1", scope = Subtree))
+        assertExactMatch(expected, actual, ValueTypeMatch(Subtree, "key0-0", "key0-1"))
 
         assertFailsWith<AssertionError>("Validation should fail when path option is not satisfied") {
-            assertTypeMatch(expected, actual, ValueExactMatch("key0-0", "key0-1", scope = Subtree))
+            assertTypeMatch(expected, actual, ValueExactMatch(Subtree, "key0-0", "key0-1"))
         }
     }
 
     /**
-     * Validates that path options set to inactive (`isActive = false`) are correctly applied in validation logic.
+     * Validates that path options set to inactive (`false`) are correctly applied in validation logic.
      */
     @Test
     fun testSetting_isActiveToFalse() {
         val expected = "[1]"
         val actual = "[1, [1]]"
 
-        assertExactMatch(expected, actual, CollectionEqualCount(isActive = false))
-        assertTypeMatch(expected, actual, CollectionEqualCount(isActive = false))
+        assertExactMatch(expected, actual, CollectionEqualCount(false))
+        assertTypeMatch(expected, actual, CollectionEqualCount(false))
     }
 
     @Test
@@ -1016,7 +1016,7 @@ class JSONAssertsPathOptionsTests {
         """
 
         assertFailsWith<AssertionError>("Validation should fail when path option is not satisfied") {
-            assertTypeMatch(expected, actual, ValueExactMatch(scope = Subtree))
+            assertTypeMatch(expected, actual, ValueExactMatch(Subtree))
         }
     }
 
@@ -1033,7 +1033,7 @@ class JSONAssertsPathOptionsTests {
         }
         """
 
-        assertExactMatch(expected, actual, ValueTypeMatch(scope = Subtree))
+        assertExactMatch(expected, actual, ValueTypeMatch(Subtree))
     }
 
     @Test
@@ -1057,7 +1057,7 @@ class JSONAssertsPathOptionsTests {
         }
         """
 
-        assertExactMatch(expected, actual, ValueTypeMatch("key0-0", scope = Subtree))
+        assertExactMatch(expected, actual, ValueTypeMatch(Subtree, "key0-0"))
     }
 
     @Test
@@ -1083,7 +1083,7 @@ class JSONAssertsPathOptionsTests {
         }
         """
 
-        assertExactMatch(expected, actual, ValueTypeMatch("key0-1"), ValueTypeMatch("key0-0", scope = Subtree))
+        assertExactMatch(expected, actual, ValueTypeMatch("key0-1"), ValueTypeMatch(Subtree, "key0-0"))
     }
 
     @Test
