@@ -355,9 +355,6 @@ class JSONAssertsParameterizedTests {
 
             assertExactMatch(params.expected, params.actual, ValueTypeMatch("[*]"))
             assertTypeMatch(params.expected, params.actual, ValueExactMatch("[*]"))
-
-            assertExactMatch(params.expected, params.actual, typeMatchPaths = listOf("[*]"))
-            assertTypeMatch(params.expected, params.actual, exactMatchPaths = listOf("[*]"))
         }
     }
 
@@ -406,11 +403,6 @@ class JSONAssertsParameterizedTests {
             assertExactMatch(params.expected, params.actual, ValueTypeMatch("[0]"))
             assertFailsWith<AssertionError>("Validation should fail when mismatched types are not equivalent under alternate paths.") {
                 assertTypeMatch(params.expected, params.actual, ValueExactMatch("[0]"))
-            }
-
-            assertExactMatch(params.expected, params.actual, typeMatchPaths = listOf("[*]"))
-            assertFailsWith<AssertionError>("Validation should fail when mismatched types are not equivalent under alternate paths.") {
-                assertTypeMatch(params.expected, params.actual, exactMatchPaths = listOf("[*]"))
             }
         }
     }

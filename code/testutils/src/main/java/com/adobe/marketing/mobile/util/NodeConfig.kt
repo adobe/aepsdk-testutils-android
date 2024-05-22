@@ -596,9 +596,8 @@ class NodeConfig {
      * This function processes a collection of paths and updates or creates the corresponding nodes.
      *
      * @param multiPathConfig Configuration for multiple paths including common option key, config, and scope.
-     * @param isLegacyMode Flag indicating if the operation should consider legacy behaviors.
      */
-    fun createOrUpdateNode(multiPathConfig: MultiPathConfig, isLegacyMode: Boolean) {
+    fun createOrUpdateNode(multiPathConfig: MultiPathConfig) {
         val pathConfigs = multiPathConfig.paths.map {
             PathConfig(
                 path = it,
@@ -608,7 +607,7 @@ class NodeConfig {
             )
         }
         for (pathConfig in pathConfigs) {
-            createOrUpdateNode(pathConfig, isLegacyMode)
+            createOrUpdateNode(pathConfig)
         }
     }
 
@@ -617,11 +616,10 @@ class NodeConfig {
      * This function processes a single path configuration and updates or creates nodes accordingly.
      *
      * @param pathConfig Configuration for a single path including option key, config, and scope.
-     * @param isLegacyMode Flag indicating if the operation should consider legacy behaviors.
      */
-    fun createOrUpdateNode(pathConfig: PathConfig, isLegacyMode: Boolean) {
+    fun createOrUpdateNode(pathConfig: PathConfig) {
         val pathComponents = getProcessedPathComponents(pathConfig.path)
-        updateTree(nodes = mutableListOf(this), pathConfig = pathConfig, pathComponents = pathComponents, isLegacyMode = isLegacyMode)
+        updateTree(nodes = mutableListOf(this), pathConfig = pathConfig, pathComponents = pathComponents)
     }
 
     /**
@@ -632,9 +630,8 @@ class NodeConfig {
      * @param nodes The list of current nodes to update.
      * @param pathConfig The configuration to apply, including the option key and its scope.
      * @param pathComponents The components of the path, dictating how deep the configuration should be applied.
-     * @param isLegacyMode A flag indicating whether legacy mode is enabled, affecting how certain options are applied.
      */
-    private fun updateTree(nodes: MutableList<NodeConfig>, pathConfig: PathConfig, pathComponents: MutableList<PathComponent>, isLegacyMode: Boolean) {
+    private fun updateTree(nodes: MutableList<NodeConfig>, pathConfig: PathConfig, pathComponents: MutableList<PathComponent>) {
         if (nodes.isEmpty()) return
         // Reached the end of the pathComponents - apply the PathConfig to the current nodes
         if (pathComponents.isEmpty()) {
@@ -663,20 +660,9 @@ class NodeConfig {
                 if (pathComponent.isWildcard) {
                     nextNodes.addAll(node._children)
                 }
-                if (isLegacyMode && pathComponent.isAnyOrder) {
-                    // This is the legacy AnyOrder that should apply to all children
-                    // Apply the option to the parent level so it applies to all children
-                    if (pathComponentName == "[*]") {
-                        node.options[OptionKey.AnyOrderMatch] =
-                            Config(isActive = true)
-                    } else {
-                        child.options[OptionKey.AnyOrderMatch] =
-                            Config(isActive = true)
-                    }
-                }
             }
         }
-        updateTree(nextNodes, pathConfig, pathComponents, isLegacyMode)
+        updateTree(nextNodes, pathConfig, pathComponents)
     }
 
     /**

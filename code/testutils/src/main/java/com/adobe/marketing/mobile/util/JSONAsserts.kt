@@ -50,63 +50,6 @@ object JSONAsserts {
     }
 
     /**
-     * Performs JSON validation where only the values from the `expected` JSON are required.
-     * By default, the comparison logic uses the value type match option, only validating that both values are of the same type.
-     *
-     * Both objects and arrays use extensible collections by default, meaning that only the elements in `expected` are
-     * validated.
-     *
-     * Alternate mode paths enable switching from the default type matching mode to exact matching
-     * mode for specified paths onward.
-     *
-     * For example, given an expected JSON like:
-     * ```
-     * {
-     *   "key1": "value1",
-     *   "key2": [{ "nest1": 1}, {"nest2": 2}],
-     *   "key3": { "key4": 1 },
-     *   "key.name": 1,
-     *   "key[123]": 1
-     * }
-     * ```
-     * An example `exactMatchPaths` path for this JSON would be: `"key2[1].nest2"`.
-     *
-     * Alternate mode paths must begin from the top level of the expected JSON. Multiple paths can be defined.
-     *
-     * Formats for object keys:
-     * - Standard keys - The key name itself: `"key1"`
-     * - Nested keys - Use dot notation: `"key3.key4"`.
-     * - Keys with dots in the name: Escape the dot notation with a backslash: `"key\.name"`.
-     *
-     * Formats for arrays:
-     * - Standard index - The index integer inside square brackets: `[<INT>]` (e.g., `[0]`, `[28]`).
-     * - Keys with array brackets in the name - Escape the brackets with backslashes: `key\[123\]`.
-     *
-     * For any position array element matching:
-     * 1. Specific index: `[*<INT>]` (ex: `[*0]`, `[*28]`). Only a single `*` character MUST be placed to the
-     * left of the index value. The element at the given index in `expected` will use any position matching in `actual`.
-     * 2. All elements: `[*]`. All elements in `expected` will use any position matching in `actual`.
-     *
-     * When combining any position option indexes and standard indexes, standard indexes are validated first.
-     *
-     * @param expected The expected JSON ([JSONObject], [JSONArray], or types supported by [getJSONRepresentation]) to compare.
-     * @param actual The actual JSON ([JSONObject], [JSONArray], or types supported by [getJSONRepresentation]) to compare.
-     * @param exactMatchPaths The key paths in the expected JSON that should use exact matching mode, where values require both the same type and literal value.
-     */
-    @JvmStatic
-    @JvmOverloads
-    @JvmName("assertTypeMatchWithExactMatchPaths")
-    fun assertTypeMatch(expected: Any, actual: Any?, exactMatchPaths: List<String> = emptyList()) {
-        val treeDefaults = listOf(
-            AnyOrderMatch(isActive = false),
-            CollectionEqualCount(isActive = false),
-            KeyMustBeAbsent(isActive = false),
-            ValueTypeMatch()
-        )
-        validate(expected, actual, listOf(ValueExactMatch(exactMatchPaths)), treeDefaults, true)
-    }
-
-    /**
      * Performs JSON validation where only the values from the `expected` JSON are required by default.
      * By default, the comparison logic uses the value type match option, only validating that both values are of the same type.
      *
@@ -163,7 +106,7 @@ object JSONAsserts {
             KeyMustBeAbsent(isActive = false),
             ValueTypeMatch()
         )
-        validate(expected, actual, pathOptions.toList(), treeDefaults, false)
+        validate(expected, actual, pathOptions.toList(), treeDefaults)
     }
 
     /**
@@ -218,64 +161,6 @@ object JSONAsserts {
     @JvmStatic
     fun assertTypeMatch(expected: Any, actual: Any?, vararg pathOptions: MultiPathConfig) {
         assertTypeMatch(expected, actual, pathOptions.toList())
-    }
-
-    /**
-     * Performs JSON validation where only the values from the `expected` JSON are required.
-     * By default, the comparison logic uses value exact match mode, validating that both values are of the same type
-     * **and** have the same literal value.
-     *
-     * Both objects and arrays use extensible collections by default, meaning that only the elements in `expected` are
-     * validated.
-     *
-     * Alternate mode paths enable switching from the default exact matching mode to type matching
-     * mode for specified paths onward.
-     *
-     * For example, given an expected JSON like:
-     * ```
-     * {
-     *   "key1": "value1",
-     *   "key2": [{ "nest1": 1}, {"nest2": 2}],
-     *   "key3": { "key4": 1 },
-     *   "key.name": 1,
-     *   "key[123]": 1
-     * }
-     * ```
-     * An example `typeMatchPaths` path for this JSON would be: `"key2[1].nest2"`.
-     *
-     * Alternate mode paths must begin from the top level of the expected JSON. Multiple paths can be defined.
-     *
-     * Formats for object keys:
-     * - Standard keys - The key name itself: `"key1"`
-     * - Nested keys - Use dot notation: `"key3.key4"`.
-     * - Keys with dots in the name: Escape the dot notation with a backslash: `"key\.name"`.
-     *
-     * Formats for arrays:
-     * - Standard index - The index integer inside square brackets: `[<INT>]` (e.g., `[0]`, `[28]`).
-     * - Keys with array brackets in the name - Escape the brackets with backslashes: `key\[123\]`.
-     *
-     * For any position array element matching:
-     * 1. Specific index: `[*<INT>]` (ex: `[*0]`, `[*28]`). Only a single `*` character MUST be placed to the
-     * left of the index value. The element at the given index in `expected` will use any position matching in `actual`.
-     * 2. All elements: `[*]`. All elements in `expected` will use any position matching in `actual`.
-     *
-     * When combining any position option indexes and standard indexes, standard indexes are validated first.
-     *
-     * @param expected The expected JSON in [JSONObject] or [JSONArray] format to compare.
-     * @param actual The actual JSON in [JSONObject] or [JSONArray] format to compare.
-     * @param typeMatchPaths The key paths in the expected JSON that should use type matching mode, where values require only the same type (and are non-null if the expected value is not null).
-     */
-    @JvmStatic
-    @JvmOverloads
-    @JvmName("assertExactMatchWithTypeMatchPaths")
-    fun assertExactMatch(expected: Any, actual: Any?, typeMatchPaths: List<String> = emptyList()) {
-        val treeDefaults = listOf(
-            AnyOrderMatch(isActive = false),
-            CollectionEqualCount(isActive = false),
-            KeyMustBeAbsent(isActive = false),
-            ValueExactMatch()
-        )
-        validate(expected, actual, listOf(ValueTypeMatch(typeMatchPaths)), treeDefaults, true)
     }
 
     /**
@@ -336,7 +221,7 @@ object JSONAsserts {
             KeyMustBeAbsent(isActive = false),
             ValueExactMatch()
         )
-        validate(expected, actual, pathOptions.toList(), treeDefaults, false)
+        validate(expected, actual, pathOptions.toList(), treeDefaults)
     }
 
     /**
@@ -398,11 +283,10 @@ object JSONAsserts {
         expected: Any,
         actual: Any?,
         pathOptions: List<MultiPathConfig>,
-        treeDefaults: List<MultiPathConfig>,
-        isLegacyMode: Boolean
+        treeDefaults: List<MultiPathConfig>
     ) {
         try {
-            val nodeTree = generateNodeTree(pathOptions, treeDefaults, isLegacyMode)
+            val nodeTree = generateNodeTree(pathOptions, treeDefaults)
 
             val expectedJSON = getJSONRepresentation(expected)
             if (expectedJSON == null) {
@@ -875,8 +759,7 @@ object JSONAsserts {
      */
     private fun generateNodeTree(
         pathOptions: List<MultiPathConfig>,
-        treeDefaults: List<MultiPathConfig>,
-        isLegacyMode: Boolean
+        treeDefaults: List<MultiPathConfig>
     ): NodeConfig {
         // Create the first node using the incoming defaults
         val subtreeOptions: MutableMap<NodeConfig.OptionKey, NodeConfig.Config> = mutableMapOf()
@@ -887,7 +770,7 @@ object JSONAsserts {
         val rootNode = NodeConfig(name = null, subtreeOptions = subtreeOptions)
 
         for (pathConfig in pathOptions) {
-            rootNode.createOrUpdateNode(pathConfig, isLegacyMode)
+            rootNode.createOrUpdateNode(pathConfig)
         }
 
         return rootNode
