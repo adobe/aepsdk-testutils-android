@@ -32,9 +32,9 @@ class NetworkRequestHelper {
     // Read-only access to network requests
     val networkRequests: List<NetworkRequest>
         get() = _networkRequests
-    private val _networkResponses: MutableMap<TestableNetworkRequest, MutableList<HttpConnecting>> = HashMap()
+    private val _networkResponses: MutableMap<TestableNetworkRequest, MutableList<HttpConnecting?>> = HashMap()
     // Read-only access to network responses
-    val networkResponses: Map<TestableNetworkRequest, MutableList<HttpConnecting>>
+    val networkResponses: Map<TestableNetworkRequest, MutableList<HttpConnecting?>>
         get() = _networkResponses
     private val expectedNetworkRequests: MutableMap<TestableNetworkRequest, ADBCountDownLatch> = HashMap()
 
@@ -146,7 +146,7 @@ class NetworkRequestHelper {
      */
     fun addResponseFor(
         request: NetworkRequest,
-        responseConnection: HttpConnecting
+        responseConnection: HttpConnecting?
     ) {
         val testableRequest = TestableNetworkRequest(request)
         if (_networkResponses[testableRequest] != null) {
@@ -174,7 +174,7 @@ class NetworkRequestHelper {
      * @return The list of [HttpConnecting] responses for the given request or `null` if not found.
      * @see [TestableNetworkRequest.equals] for the logic used to match network requests.
      */
-    fun getResponsesFor(request: NetworkRequest): List<HttpConnecting>? {
+    fun getResponsesFor(request: NetworkRequest): List<HttpConnecting?>? {
         return _networkResponses[TestableNetworkRequest(request)]
     }
 

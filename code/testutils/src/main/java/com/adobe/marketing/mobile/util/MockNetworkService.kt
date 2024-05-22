@@ -54,7 +54,7 @@ class MockNetworkService : Networking {
     companion object {
         private const val LOG_SOURCE = "MockNetworkService"
         private var delayedResponse = 0
-        private val defaultResponse: HttpConnecting = object : HttpConnecting {
+        private var defaultResponse: HttpConnecting? = object : HttpConnecting {
             override fun getInputStream(): InputStream {
                 return ByteArrayInputStream("".toByteArray())
             }
@@ -98,7 +98,11 @@ class MockNetworkService : Networking {
                         e.printStackTrace()
                     }
                 }
-                resultCallback.call(helper.getResponsesFor(networkRequest)?.firstOrNull() ?: defaultResponse)
+                // Since null responses are valid responses, only use the default response if no response
+                // has been set for this request.
+                val responses = helper.getResponsesFor(networkRequest)
+                val response = if (responses != null) responses.firstOrNull() else defaultResponse
+                resultCallback.call(response)
                 // Do countdown after notifying completion handler to avoid prematurely ungating awaits
                 // before required network logic finishes
                 helper.countDownExpected(testableNetworkRequest)
@@ -107,11 +111,35 @@ class MockNetworkService : Networking {
     }
 
     /**
-     * Clears all test expectations and recorded network requests and responses.
+     * Clears all test expectations and recorded network requests and responses. Resets the default
+     * response.
      */
     fun reset() {
         delayedResponse = 0
         helper.reset()
+        defaultResponse = object : HttpConnecting {
+            override fun getInputStream(): InputStream {
+                return ByteArrayInputStream("".toByteArray())
+            }
+
+            override fun getErrorStream(): InputStream? {
+                return null
+            }
+
+            override fun getResponseCode(): Int {
+                return 200
+            }
+
+            override fun getResponseMessage(): String {
+                return ""
+            }
+
+            override fun getResponsePropertyValue(responsePropertyKey: String): String? {
+                return null
+            }
+
+            override fun close() {}
+        }
     }
 
     /**
@@ -130,13 +158,13 @@ class MockNetworkService : Networking {
      *
      * @param url The URL `String` of the [TestableNetworkRequest] for which the mock response is being set.
      * @param method The [HttpMethod] of the [TestableNetworkRequest] for which the mock response is being set.
-     * @param responseConnection The [HttpConnecting] instance to set as a response. If `null` is provided, a default '200' response is used.
+     * @param responseConnection The [HttpConnecting] instance to set as a response. If `null` is provided, the [defaultResponse] is used.
      */
     @JvmOverloads
     fun setMockResponseFor(
         url: String,
         method: HttpMethod = HttpMethod.POST,
-        responseConnection: HttpConnecting
+        responseConnection: HttpConnecting?
     ) {
         helper.addResponseFor(
             TestableNetworkRequest(
@@ -145,6 +173,15 @@ class MockNetworkService : Networking {
             ),
             responseConnection
         )
+    }
+
+    /**
+     * Sets the default network response for all requests.
+     *
+     * @param responseConnection The [HttpConnecting] instance to be set as the default response.
+     */
+    fun setDefaultResponse(responseConnection: HttpConnecting?) {
+        defaultResponse = responseConnection
     }
 
     /**
