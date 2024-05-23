@@ -18,6 +18,7 @@ plugins {
 }
 
 val mavenCoreVersion: String by project
+val jacksonVersion = "2.12.7"
 
 aepLibrary {
     namespace = "com.adobe.marketing.mobile.testutils"
@@ -28,11 +29,12 @@ aepLibrary {
     publishing {
         gitRepoName = "aepsdk-testutils-android"
         addCoreDependency(mavenCoreVersion)
+        addMavenDependency("com.fasterxml.jackson.core", "jackson-databind", jacksonVersion)
     }
 }
 
 dependencies {
     implementation("com.adobe.marketing.mobile:core:$mavenCoreVersion")
     implementation(BuildConstants.Dependencies.ANDROIDX_TEST_EXT_JUNIT)
-    implementation("com.fasterxml.jackson.core:jackson-databind:2.12.7")
+    implementation("com.fasterxml.jackson.core:jackson-databind:$jacksonVersion")
 }
