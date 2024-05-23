@@ -16,6 +16,7 @@ import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.fail
 
 object JSONAsserts {
@@ -46,7 +47,7 @@ object JSONAsserts {
             return
         }
         // Exact equality is just a special case of exact match
-        assertExactMatch(expected, actual, CollectionEqualCount(isActive = true, scope = NodeConfig.Scope.Subtree))
+        assertExactMatch(expected, actual, CollectionEqualCount(true, NodeConfig.Scope.Subtree))
     }
 
     /**
@@ -104,7 +105,8 @@ object JSONAsserts {
             AnyOrderMatch(isActive = false),
             CollectionEqualCount(isActive = false),
             KeyMustBeAbsent(isActive = false),
-            ValueTypeMatch()
+            ValueTypeMatch(),
+            ValueNotEqual(isActive = false)
         )
         validate(expected, actual, pathOptions.toList(), treeDefaults)
     }
@@ -219,7 +221,8 @@ object JSONAsserts {
             AnyOrderMatch(isActive = false),
             CollectionEqualCount(isActive = false),
             KeyMustBeAbsent(isActive = false),
-            ValueExactMatch()
+            ValueExactMatch(),
+            ValueNotEqual(isActive = false)
         )
         validate(expected, actual, pathOptions.toList(), treeDefaults)
     }
@@ -326,7 +329,7 @@ object JSONAsserts {
             if (shouldAssert) {
                 fail(
                     """
-                    Expected JSON is non-nil but Actual JSON is nil.
+                    Expected JSON is non-null but Actual JSON is null.
                     Expected: $expected
                     Actual: $actual
                     Key path: ${keyPathAsString(keyPath)}
@@ -341,7 +344,19 @@ object JSONAsserts {
                 expected is Boolean && actual is Boolean ||
                 expected is Int && actual is Int ||
                 expected is Double && actual is Double -> {
-                if (nodeTree.primitiveExactMatch.isActive) {
+                if (nodeTree.valueNotEqual.isActive) {
+                    if (shouldAssert) assertNotEquals(
+                        """
+                        Expected and Actual values should not be equal.
+                        Expected: $expected (Type: ${expected::class.qualifiedName})
+                        Actual: $actual (Type: ${actual::class.qualifiedName})
+                        Key path: ${keyPathAsString(keyPath)}
+                        """.trimIndent(),
+                        expected,
+                        actual
+                    )
+                    expected != actual
+                } else if (nodeTree.primitiveExactMatch.isActive) {
                     if (shouldAssert) assertEquals(
                         "Key path: ${keyPathAsString(keyPath)}",
                         expected,
@@ -370,7 +385,7 @@ object JSONAsserts {
                 if (shouldAssert) {
                     fail(
                         """
-                        Expected and Actual types do not match.
+                        Expected and Actual types are not the same.
                         Expected: $expected (Type: ${expected::class.qualifiedName})
                         Actual: $actual (Type: ${actual::class.qualifiedName})
                         Key path: ${keyPathAsString(keyPath)}
@@ -407,7 +422,7 @@ object JSONAsserts {
             if (shouldAssert) {
                 fail(
                     """
-                Expected JSON is non-nil but Actual JSON is nil.
+                Expected JSON is non-null but Actual JSON is null.
     
                 Expected: $expected
     
@@ -554,7 +569,7 @@ object JSONAsserts {
             if (shouldAssert) {
                 fail(
                     """
-                    Expected JSON is non-nil but Actual JSON is nil.
+                    Expected JSON is non-null but Actual JSON is null.
         
                     Expected: $expected
                     

@@ -1093,4 +1093,136 @@ class JSONAssertsPathOptionsTests {
 
         assertExactMatch(expected, actual, AnyOrderMatch())
     }
+
+    @Test
+    fun testValueNotEqual_withDictionarySpecificKey_passes() {
+        val expected = """{ "key": "value" }"""
+        val actual = """{ "key": "different" }"""
+
+        assertExactMatch(expected, actual, ValueNotEqual("key"))
+    }
+
+    @Test
+    fun testValueNotEqual_withDictionaryUnsatisfiedKey_fails() {
+        val expected = """
+        {
+          "key1": "value",
+          "key2": "value"
+        }
+        """
+        val actual = """
+        {
+          "key1": "different",
+          "key2": "different"
+        }
+        """
+
+        assertFailsWith<AssertionError>("Validation should fail when path option is not satisfied") {
+            assertExactMatch(expected, actual, ValueNotEqual("key1"))
+        }
+    }
+
+    @Test
+    fun testValueNotEqual_withDictionarySingleNodeScope_passes() {
+        val expected = """
+        {
+          "key1": "value",
+          "key2": {
+            "key3": "value"
+          }
+        }
+        """
+        val actual = """
+        {
+          "key1": "different",
+          "key2": {
+            "key3": "value"
+          }
+        }
+        """
+
+        assertExactMatch(expected, actual, ValueNotEqual("*"))
+    }
+
+    @Test
+    fun testValueNotEqual_withDictionarySubtreeScope_passes() {
+        val expected = """
+        {
+          "key1": "value",
+          "key2": {
+            "key3": "value"
+          }
+        }
+        """
+        val actual = """
+        {
+          "key1": "different",
+          "key2": {
+            "key3": "different"
+          }
+        }
+        """
+
+        assertExactMatch(expected, actual, ValueNotEqual(Subtree))
+    }
+
+    @Test
+    fun testValueNotEqual_withDictionaryWildcardKey_passes() {
+        val expected = """
+        {
+          "key1": "value",
+          "key2": "value"
+        }
+        """
+        val actual = """
+        {
+          "key1": "different",
+          "key2": "different"
+        }
+        """
+
+        assertExactMatch(expected, actual, ValueNotEqual("*"))
+    }
+
+    @Test
+    fun testValueNotEqual_withArraySpecificIndex_passes() {
+        val expected = "[1]"
+        val actual = "[2]"
+
+        assertExactMatch(expected, actual, ValueNotEqual("[0]"))
+    }
+
+    @Test
+    fun testValueNotEqual_withArrayUnsatisfiedIndex_passes() {
+        val expected = "[1, 1]"
+        val actual = "[2, 2]"
+
+        assertFailsWith<AssertionError>("Validation should fail when path option is not satisfied") {
+            assertExactMatch(expected, actual, ValueNotEqual("[0]"))
+        }
+    }
+
+    @Test
+    fun testValueNotEqual_withArrayWildcardIndex_passes() {
+        val expected = "[1, 1]"
+        val actual = "[2, 2]"
+
+        assertExactMatch(expected, actual, ValueNotEqual("[*]"))
+    }
+
+    @Test
+    fun testValueNotEqual_withArraySingleNodeScope_passes() {
+        val expected = "[1, [1]]"
+        val actual = "[2, [1]]"
+
+        assertExactMatch(expected, actual, ValueNotEqual("*"))
+    }
+
+    @Test
+    fun testValueNotEqual_withArraySubtreeScope_passes() {
+        val expected = "[1, [1]]"
+        val actual = "[2, [2]]"
+
+        assertExactMatch(expected, actual, ValueNotEqual(Subtree))
+    }
 }

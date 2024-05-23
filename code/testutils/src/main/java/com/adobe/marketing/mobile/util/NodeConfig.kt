@@ -267,6 +267,70 @@ data class KeyMustBeAbsent(
 }
 
 /**
+ * Validation option which specifies: values must have the same type but the literal values must not be equal.
+ */
+data class ValueNotEqual(
+    override val config: NodeConfig.Config = NodeConfig.Config(isActive = true),
+    override val scope: NodeConfig.Scope = NodeConfig.Scope.SingleNode,
+    override val paths: List<String?> = listOf(null),
+    override val optionKey: NodeConfig.OptionKey = NodeConfig.OptionKey.ValueNotEqual,
+) : MultiPathConfig {
+    companion object {
+        private val defaultPaths = listOf(null)
+        private val defaultScope = NodeConfig.Scope.SingleNode
+    }
+
+    /**
+     * Initializes a new instance with the specified parameters.
+     *
+     * @param isActive Boolean value indicating whether the configuration is active.
+     * @param scope The scope of configuration, defaulting to single node.
+     * @param paths A list of optional path strings.
+     */
+    constructor(isActive: Boolean = true, scope: NodeConfig.Scope = NodeConfig.Scope.SingleNode, paths: List<String?> = defaultPaths) :
+        this(NodeConfig.Config(isActive = isActive), scope, paths)
+
+    // Secondary constructor permutations are explicitly defined for Java compatibility
+    constructor(isActive: Boolean, paths: List<String?>) :
+        this(isActive, defaultScope, paths)
+
+    constructor(scope: NodeConfig.Scope, paths: List<String?>) :
+        this(true, scope, paths)
+
+    constructor(isActive: Boolean, scope: NodeConfig.Scope) :
+        this(isActive, scope, defaultPaths)
+
+    constructor(isActive: Boolean) :
+        this(isActive, defaultPaths)
+
+    constructor(scope: NodeConfig.Scope) :
+        this(scope, defaultPaths)
+
+    constructor(paths: List<String?>) :
+        this(defaultScope, paths)
+
+    // Variadic initializers rely on their List<*> constructor counterparts
+    /**
+     * Variadic initializer allowing multiple string paths.
+     *
+     * @param isActive Boolean value indicating whether the configuration is active.
+     * @param scope The scope of configuration, defaulting to single node.
+     * @param paths Vararg of optional path strings.
+     */
+    constructor(isActive: Boolean = true, scope: NodeConfig.Scope = NodeConfig.Scope.SingleNode, vararg paths: String?) :
+        this(isActive, scope, if (paths.isEmpty()) defaultPaths else paths.toList())
+
+    constructor(isActive: Boolean, vararg paths: String?) :
+        this(isActive, if (paths.isEmpty()) defaultPaths else paths.toList())
+
+    constructor(scope: NodeConfig.Scope, vararg paths: String?) :
+        this(scope, if (paths.isEmpty()) defaultPaths else paths.toList())
+
+    constructor(vararg paths: String?) :
+        this(if (paths.isEmpty()) defaultPaths else paths.toList())
+}
+
+/**
  * Validation option which specifies that values must have the same type and literal value.
  * This class applies to specified paths within a data structure, ensuring that values at these paths
  * are exactly the same both in type and value.
@@ -383,8 +447,9 @@ class NodeConfig {
     enum class OptionKey(val value: String) {
         AnyOrderMatch("AnyOrderMatch"),
         CollectionEqualCount("CollectionEqualCount"),
+        KeyMustBeAbsent("KeyMustBeAbsent"),
         PrimitiveExactMatch("PrimitiveExactMatch"),
-        KeyMustBeAbsent("KeyMustBeAbsent")
+        ValueNotEqual("ValueNotEqual")
     }
 
     /**
@@ -447,6 +512,10 @@ class NodeConfig {
     var primitiveExactMatch: Config
         get() = options[OptionKey.PrimitiveExactMatch] ?: subtreeOptions[OptionKey.PrimitiveExactMatch]!!
         set(value) { options[OptionKey.PrimitiveExactMatch] = value }
+
+    var valueNotEqual: Config
+        get() = options[OptionKey.ValueNotEqual] ?: subtreeOptions[OptionKey.ValueNotEqual]!!
+        set(value) { options[OptionKey.ValueNotEqual] = value }
 
     /**
      * Creates a new node with the given values.
@@ -520,6 +589,8 @@ class NodeConfig {
                     node?.keyMustBeAbsent ?: node?.wildcardChildren?.keyMustBeAbsent ?: parentNode.keyMustBeAbsent
                 OptionKey.PrimitiveExactMatch ->
                     node?.primitiveExactMatch ?: node?.wildcardChildren?.primitiveExactMatch ?: parentNode.primitiveExactMatch
+                OptionKey.ValueNotEqual ->
+                    node?.valueNotEqual ?: node?.wildcardChildren?.valueNotEqual ?: parentNode.valueNotEqual
             }
         }
     }
