@@ -20,6 +20,7 @@ class PathOptionElementCountTests {
         val actual = "[1, \"abc\", true, null]"
 
         JSONAsserts.assertExactMatch("[]", actual, ElementCount(4))
+        JSONAsserts.assertTypeMatch("[]", actual, ElementCount(4))
     }
 
     @Test
@@ -27,6 +28,7 @@ class PathOptionElementCountTests {
         val actual = "[1, [\"abc\", true, null]]"
 
         JSONAsserts.assertExactMatch("[]", actual, ElementCount(4, NodeConfig.Scope.Subtree))
+        JSONAsserts.assertTypeMatch("[]", actual, ElementCount(4, NodeConfig.Scope.Subtree))
     }
 
     @Test
@@ -34,6 +36,7 @@ class PathOptionElementCountTests {
         val actual = "[1, [\"abc\", true, null]]"
 
         JSONAsserts.assertExactMatch("[]", actual, ElementCount(1))
+        JSONAsserts.assertTypeMatch("[]", actual, ElementCount(1))
     }
 
     @Test
@@ -41,6 +44,7 @@ class PathOptionElementCountTests {
         val actual = "[1, [\"abc\", true, null]]"
 
         JSONAsserts.assertExactMatch("[]", actual, ElementCount(3, "[1]"))
+        JSONAsserts.assertTypeMatch("[]", actual, ElementCount(3, "[1]"))
     }
 
     @Test
@@ -48,6 +52,7 @@ class PathOptionElementCountTests {
         val actual = "[1, [\"abc\", true, null]]"
 
         JSONAsserts.assertExactMatch("[]", actual, ElementCount(1), ElementCount(3, "[1]"))
+        JSONAsserts.assertTypeMatch("[]", actual, ElementCount(1), ElementCount(3, "[1]"))
     }
 
     @Test
@@ -55,6 +60,12 @@ class PathOptionElementCountTests {
         val actual = "[1, [\"abc\", true, null]]"
 
         JSONAsserts.assertExactMatch(
+            "[]",
+            actual,
+            ElementCount(1),
+            ElementCount(4, NodeConfig.Scope.Subtree)
+        )
+        JSONAsserts.assertTypeMatch(
             "[]",
             actual,
             ElementCount(1),
@@ -72,6 +83,12 @@ class PathOptionElementCountTests {
         assertFailsWith<AssertionError>("Validation should fail when path option is not satisfied") {
             JSONAsserts.assertExactMatch("[]", actual, ElementCount(3))
         }
+        assertFailsWith<AssertionError>("Validation should fail when path option is not satisfied") {
+            JSONAsserts.assertTypeMatch("[]", actual, ElementCount(5))
+        }
+        assertFailsWith<AssertionError>("Validation should fail when path option is not satisfied") {
+            JSONAsserts.assertTypeMatch("[]", actual, ElementCount(3))
+        }
     }
 
     @Test
@@ -84,6 +101,12 @@ class PathOptionElementCountTests {
             ElementCount(3, NodeConfig.Scope.Subtree),
             ElementCount(null, false, "[0]")
         )
+        JSONAsserts.assertTypeMatch(
+            "[]",
+            actual,
+            ElementCount(3, NodeConfig.Scope.Subtree),
+            ElementCount(null, false, "[0]")
+        )
     }
 
     @Test
@@ -91,6 +114,12 @@ class PathOptionElementCountTests {
         val actual = "[1, [\"abc\", [true, null]]]"
 
         JSONAsserts.assertExactMatch(
+            "[]",
+            actual,
+            ElementCount(3, NodeConfig.Scope.Subtree),
+            ElementCount(null, false, "[1]")
+        )
+        JSONAsserts.assertTypeMatch(
             "[]",
             actual,
             ElementCount(3, NodeConfig.Scope.Subtree),
@@ -109,6 +138,13 @@ class PathOptionElementCountTests {
             ElementCount(1, NodeConfig.Scope.Subtree, "[1]"),
             ElementCount(null, false, NodeConfig.Scope.Subtree, "[1][1]")
         )
+        JSONAsserts.assertTypeMatch(
+            "[]",
+            actual,
+            ElementCount(null, false, NodeConfig.Scope.Subtree),
+            ElementCount(1, NodeConfig.Scope.Subtree, "[1]"),
+            ElementCount(null, false, NodeConfig.Scope.Subtree, "[1][1]")
+        )
     }
 
     @Test
@@ -116,6 +152,12 @@ class PathOptionElementCountTests {
         val actual = "[1, [\"abc\", [true, null]]]"
 
         JSONAsserts.assertExactMatch(
+            "[]",
+            actual,
+            ElementCount(null, false, NodeConfig.Scope.Subtree),
+            ElementCount(1, "[1]")
+        )
+        JSONAsserts.assertTypeMatch(
             "[]",
             actual,
             ElementCount(null, false, NodeConfig.Scope.Subtree),
@@ -133,6 +175,12 @@ class PathOptionElementCountTests {
             ElementCount(null, false, NodeConfig.Scope.Subtree),
             ElementCount(3, NodeConfig.Scope.Subtree, "[1]")
         )
+        JSONAsserts.assertTypeMatch(
+            "[]",
+            actual,
+            ElementCount(null, false, NodeConfig.Scope.Subtree),
+            ElementCount(3, NodeConfig.Scope.Subtree, "[1]")
+        )
     }
 
     /**
@@ -144,6 +192,7 @@ class PathOptionElementCountTests {
         val actual = "[1]"
 
         JSONAsserts.assertExactMatch("[]", actual, ElementCount(100, "[0]"))
+        JSONAsserts.assertTypeMatch("[]", actual, ElementCount(100, "[0]"))
     }
 
     @Test
@@ -151,6 +200,7 @@ class PathOptionElementCountTests {
         val actual = "[[1],[1]]"
 
         JSONAsserts.assertExactMatch("[]", actual, ElementCount(1, "[*]"))
+        JSONAsserts.assertTypeMatch("[]", actual, ElementCount(1, "[*]"))
     }
 
     @Test
@@ -165,6 +215,7 @@ class PathOptionElementCountTests {
         """
 
         JSONAsserts.assertExactMatch("{}", actual, ElementCount(4))
+        JSONAsserts.assertTypeMatch("{}", actual, ElementCount(4))
     }
 
     @Test
@@ -181,6 +232,7 @@ class PathOptionElementCountTests {
         """
 
         JSONAsserts.assertExactMatch("{}", actual, ElementCount(4, NodeConfig.Scope.Subtree))
+        JSONAsserts.assertTypeMatch("{}", actual, ElementCount(4, NodeConfig.Scope.Subtree))
     }
 
     @Test
@@ -197,6 +249,7 @@ class PathOptionElementCountTests {
         """
 
         JSONAsserts.assertExactMatch("{}", actual, ElementCount(1))
+        JSONAsserts.assertTypeMatch("{}", actual, ElementCount(1))
     }
 
     @Test
@@ -213,6 +266,7 @@ class PathOptionElementCountTests {
         """
 
         JSONAsserts.assertExactMatch("{}", actual, ElementCount(3, "key2"))
+        JSONAsserts.assertTypeMatch("{}", actual, ElementCount(3, "key2"))
     }
 
     @Test
@@ -229,6 +283,7 @@ class PathOptionElementCountTests {
         """
 
         JSONAsserts.assertExactMatch("{}", actual, ElementCount(1), ElementCount(3, "key2"))
+        JSONAsserts.assertTypeMatch("{}", actual, ElementCount(1), ElementCount(3, "key2"))
     }
 
     @Test
@@ -245,6 +300,12 @@ class PathOptionElementCountTests {
         """
 
         JSONAsserts.assertExactMatch(
+            "{}",
+            actual,
+            ElementCount(1),
+            ElementCount(4, NodeConfig.Scope.Subtree)
+        )
+        JSONAsserts.assertTypeMatch(
             "{}",
             actual,
             ElementCount(1),
@@ -269,6 +330,12 @@ class PathOptionElementCountTests {
         assertFailsWith<AssertionError>("Validation should fail when path option is not satisfied") {
             JSONAsserts.assertExactMatch("{}", actual, ElementCount(3))
         }
+        assertFailsWith<AssertionError>("Validation should fail when path option is not satisfied") {
+            JSONAsserts.assertTypeMatch("{}", actual, ElementCount(5))
+        }
+        assertFailsWith<AssertionError>("Validation should fail when path option is not satisfied") {
+            JSONAsserts.assertTypeMatch("{}", actual, ElementCount(3))
+        }
     }
 
     @Test
@@ -283,6 +350,12 @@ class PathOptionElementCountTests {
         """
 
         JSONAsserts.assertExactMatch(
+            "{}",
+            actual,
+            ElementCount(3, NodeConfig.Scope.Subtree),
+            ElementCount(null, false, "key1")
+        )
+        JSONAsserts.assertTypeMatch(
             "{}",
             actual,
             ElementCount(3, NodeConfig.Scope.Subtree),
@@ -306,6 +379,12 @@ class PathOptionElementCountTests {
         """
 
         JSONAsserts.assertExactMatch(
+            "{}",
+            actual,
+            ElementCount(3, NodeConfig.Scope.Subtree),
+            ElementCount(null, false, "key2")
+        )
+        JSONAsserts.assertTypeMatch(
             "{}",
             actual,
             ElementCount(3, NodeConfig.Scope.Subtree),
@@ -335,6 +414,13 @@ class PathOptionElementCountTests {
             ElementCount(1, NodeConfig.Scope.Subtree, "key2"),
             ElementCount(null, false, NodeConfig.Scope.Subtree, "key2.key2_2")
         )
+        JSONAsserts.assertTypeMatch(
+            "{}",
+            actual,
+            ElementCount(null, false, NodeConfig.Scope.Subtree),
+            ElementCount(1, NodeConfig.Scope.Subtree, "key2"),
+            ElementCount(null, false, NodeConfig.Scope.Subtree, "key2.key2_2")
+        )
     }
 
     @Test
@@ -353,6 +439,12 @@ class PathOptionElementCountTests {
         """
 
         JSONAsserts.assertExactMatch(
+            "{}",
+            actual,
+            ElementCount(null, false, NodeConfig.Scope.Subtree),
+            ElementCount(1, "key2"),
+        )
+        JSONAsserts.assertTypeMatch(
             "{}",
             actual,
             ElementCount(null, false, NodeConfig.Scope.Subtree),
@@ -381,6 +473,12 @@ class PathOptionElementCountTests {
             ElementCount(null, false, NodeConfig.Scope.Subtree),
             ElementCount(3, NodeConfig.Scope.Subtree, "key2"),
         )
+        JSONAsserts.assertTypeMatch(
+            "{}",
+            actual,
+            ElementCount(null, false, NodeConfig.Scope.Subtree),
+            ElementCount(3, NodeConfig.Scope.Subtree, "key2"),
+        )
     }
 
     /**
@@ -392,5 +490,6 @@ class PathOptionElementCountTests {
         val actual = """{ "key1": 1 }"""
 
         JSONAsserts.assertExactMatch("{}", actual, ElementCount(100, "key1"))
+        JSONAsserts.assertTypeMatch("{}", actual, ElementCount(100, "key1"))
     }
 }
