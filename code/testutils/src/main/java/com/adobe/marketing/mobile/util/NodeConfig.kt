@@ -13,7 +13,6 @@ package com.adobe.marketing.mobile.util
 
 import org.junit.Assert.fail
 import java.util.Objects
-import java.util.regex.Pattern
 
 /**
  * An interface that defines a multi-path configuration.
@@ -200,6 +199,73 @@ data class CollectionEqualCount(
 
     constructor(vararg paths: String?) :
         this(if (paths.isEmpty()) defaultPaths else paths.toList())
+}
+
+/**
+ * Validation option which specifies: The given number of elements (dictionary keys and array elements)
+ * must be present.
+ */
+data class ElementCount(
+    override val config: NodeConfig.Config = NodeConfig.Config(isActive = true),
+    override val scope: NodeConfig.Scope = NodeConfig.Scope.SingleNode,
+    override val paths: List<String?> = listOf(null),
+    override val optionKey: NodeConfig.OptionKey = NodeConfig.OptionKey.ElementCount,
+) : MultiPathConfig {
+    companion object {
+        private val defaultPaths = listOf(null)
+        private val defaultScope = NodeConfig.Scope.SingleNode
+    }
+
+    /**
+     * Initializes a new instance with the specified parameters.
+     *
+     * @param requiredCount The number of elements required.
+     * @param isActive Boolean value indicating whether the configuration is active.
+     * @param scope The scope of configuration, defaulting to single node.
+     * @param paths A list of optional path strings.
+     */
+    constructor(requiredCount: Int?, isActive: Boolean = true, scope: NodeConfig.Scope = NodeConfig.Scope.SingleNode, paths: List<String?> = defaultPaths) :
+        this(NodeConfig.Config(isActive = isActive, elementCount = requiredCount), scope, paths)
+
+    // Secondary constructor permutations are explicitly defined for Java compatibility
+    constructor(requiredCount: Int?, isActive: Boolean, paths: List<String?>) :
+        this(requiredCount, isActive, defaultScope, paths)
+
+    constructor(requiredCount: Int?, scope: NodeConfig.Scope, paths: List<String?>) :
+        this(requiredCount, true, scope, paths)
+
+    constructor(requiredCount: Int?, isActive: Boolean, scope: NodeConfig.Scope) :
+        this(requiredCount, isActive, scope, defaultPaths)
+
+    constructor(requiredCount: Int?, isActive: Boolean) :
+        this(requiredCount, isActive, defaultPaths)
+
+    constructor(requiredCount: Int?, scope: NodeConfig.Scope) :
+        this(requiredCount, scope, defaultPaths)
+
+    constructor(requiredCount: Int?, paths: List<String?>) :
+        this(requiredCount, defaultScope, paths)
+
+    // Variadic initializers rely on their List<*> constructor counterparts
+    /**
+     * Variadic initializer allowing multiple string paths.
+     *
+     * @param requiredCount The number of elements required.
+     * @param isActive Boolean value indicating whether the configuration is active.
+     * @param scope The scope of configuration, defaulting to single node.
+     * @param paths Vararg of optional path strings.
+     */
+    constructor(requiredCount: Int?, isActive: Boolean = true, scope: NodeConfig.Scope = NodeConfig.Scope.SingleNode, vararg paths: String?) :
+        this(requiredCount, isActive, scope, if (paths.isEmpty()) defaultPaths else paths.toList())
+
+    constructor(requiredCount: Int?, isActive: Boolean, vararg paths: String?) :
+        this(requiredCount, isActive, if (paths.isEmpty()) defaultPaths else paths.toList())
+
+    constructor(requiredCount: Int?, scope: NodeConfig.Scope, vararg paths: String?) :
+        this(requiredCount, scope, if (paths.isEmpty()) defaultPaths else paths.toList())
+
+    constructor(requiredCount: Int?, vararg paths: String?) :
+        this(requiredCount, if (paths.isEmpty()) defaultPaths else paths.toList())
 }
 
 /**
@@ -447,6 +513,7 @@ class NodeConfig {
     enum class OptionKey(val value: String) {
         AnyOrderMatch("AnyOrderMatch"),
         CollectionEqualCount("CollectionEqualCount"),
+        ElementCount("ElementCount"),
         KeyMustBeAbsent("KeyMustBeAbsent"),
         PrimitiveExactMatch("PrimitiveExactMatch"),
         ValueNotEqual("ValueNotEqual")
@@ -455,13 +522,11 @@ class NodeConfig {
     /**
      * Represents the configuration details for a comparison option
      */
-    data class Config(var isActive: Boolean)
-
-    data class NodeOption(
-        val optionKey: OptionKey,
-        val config: Config,
-        val scope: Scope
-    )
+    data class Config(val isActive: Boolean, val elementCount: Int? = null) {
+        fun deepCopy(): Config {
+            return Config(isActive, elementCount)
+        }
+    }
 
     private data class PathComponent(
         var name: String?,
@@ -498,23 +563,39 @@ class NodeConfig {
     // Property accessors for each option which use the `options` set for the current node
     // and fall back to subtree options.
     var anyOrderMatch: Config
-        get() = options[OptionKey.AnyOrderMatch] ?: subtreeOptions[OptionKey.AnyOrderMatch]!!
+        get() = options[OptionKey.AnyOrderMatch]
+            ?: subtreeOptions[OptionKey.AnyOrderMatch]
+            ?: Config(false)
         set(value) { options[OptionKey.AnyOrderMatch] = value }
 
     var collectionEqualCount: Config
-        get() = options[OptionKey.CollectionEqualCount] ?: subtreeOptions[OptionKey.CollectionEqualCount]!!
+        get() = options[OptionKey.CollectionEqualCount]
+            ?: subtreeOptions[OptionKey.CollectionEqualCount]
+            ?: Config(false)
         set(value) { options[OptionKey.CollectionEqualCount] = value }
 
+    var elementCount: Config
+        get() = options[OptionKey.ElementCount]
+            ?: subtreeOptions[OptionKey.ElementCount]
+            ?: Config(true)
+        set(value) { options[OptionKey.ElementCount] = value }
+
     var keyMustBeAbsent: Config
-        get() = options[OptionKey.KeyMustBeAbsent] ?: subtreeOptions[OptionKey.KeyMustBeAbsent]!!
+        get() = options[OptionKey.KeyMustBeAbsent]
+            ?: subtreeOptions[OptionKey.KeyMustBeAbsent]
+            ?: Config(false)
         set(value) { options[OptionKey.KeyMustBeAbsent] = value }
 
     var primitiveExactMatch: Config
-        get() = options[OptionKey.PrimitiveExactMatch] ?: subtreeOptions[OptionKey.PrimitiveExactMatch]!!
+        get() = options[OptionKey.PrimitiveExactMatch]
+            ?: subtreeOptions[OptionKey.PrimitiveExactMatch]
+            ?: Config(false)
         set(value) { options[OptionKey.PrimitiveExactMatch] = value }
 
     var valueNotEqual: Config
-        get() = options[OptionKey.ValueNotEqual] ?: subtreeOptions[OptionKey.ValueNotEqual]!!
+        get() = options[OptionKey.ValueNotEqual]
+            ?: subtreeOptions[OptionKey.ValueNotEqual]
+            ?: Config(false)
         set(value) { options[OptionKey.ValueNotEqual] = value }
 
     /**
@@ -550,48 +631,42 @@ class NodeConfig {
     companion object {
         /**
          * Resolves a given node's option using the following precedence:
-         * 1. Single node option
-         *    a. Current node
-         *    b. Wildcard child
+         * 1. Single node config
+         *    a. Child node
+         *    b. Parent's wildcard node
          *    c. Parent node
+         * 2. Subtree config
+         *    a. Child node (by definition supersedes wildcard subtree option)
+         *    b. Parent node (only if child node doesn't exist)
          *
-         * 2. Subtree option
-         *    a. Current node
-         *    b. Wildcard child
-         *    c. Parent node
-         *
-         * This is to handle the case where an array has a node-specific option like wildcard match which
-         * should apply to all direct children (that is, only 1 level down), and one of the children has a
-         * node specific option disabling wildcard match.
+         * This is to handle the case where an array has a node-specific option like AnyPosition match which
+         * should apply to all direct children (that is, only 1 level down), but one of the children has a
+         * node specific option disabling AnyPosition match.
          */
         @JvmStatic
-        fun resolveOption(option: OptionKey, node: NodeConfig?, parentNode: NodeConfig): Config {
+        fun resolveOption(option: OptionKey, childName: String?, parentNode: NodeConfig): Config {
+            val childNode = parentNode.getChild(childName)
             // Single node options
             // Current node
-            node?.options?.get(option)?.let {
+            childNode?.options?.get(option)?.let {
                 return it
             }
-            // Wildcard child
-            node?.wildcardChildren?.options?.get(option)?.let {
+            // Parent's wildcard child
+            parentNode.wildcardChildren?.options?.get(option)?.let {
                 return it
             }
-            // Check array's node-specific option
+            // Check parent array's node-specific option
             parentNode.options[option]?.let {
                 return it
             }
-            // Check node's subtree option, falling back to array node's default subtree config
-            return when (option) {
-                OptionKey.AnyOrderMatch ->
-                    node?.anyOrderMatch ?: node?.wildcardChildren?.anyOrderMatch ?: parentNode.anyOrderMatch
-                OptionKey.CollectionEqualCount ->
-                    node?.collectionEqualCount ?: node?.wildcardChildren?.collectionEqualCount ?: parentNode.collectionEqualCount
-                OptionKey.KeyMustBeAbsent ->
-                    node?.keyMustBeAbsent ?: node?.wildcardChildren?.keyMustBeAbsent ?: parentNode.keyMustBeAbsent
-                OptionKey.PrimitiveExactMatch ->
-                    node?.primitiveExactMatch ?: node?.wildcardChildren?.primitiveExactMatch ?: parentNode.primitiveExactMatch
-                OptionKey.ValueNotEqual ->
-                    node?.valueNotEqual ?: node?.wildcardChildren?.valueNotEqual ?: parentNode.valueNotEqual
-            }
+            // Check subtree options in the same order of precedence, with the condition that if childNode exists,
+            // it must have a subtree definition. Fallback to parentNode only if childNode doesn't exist.
+            return childNode?.subtreeOptions?.get(option) ?: parentNode.subtreeOptions[option] ?: Config(false)
+        }
+
+        @JvmStatic
+        fun resolveOption(option: OptionKey, childName: Int?, parentNode: NodeConfig): Config {
+            return resolveOption(option, childName?.toString(), parentNode)
         }
     }
 
@@ -650,16 +725,29 @@ class NodeConfig {
 
     /**
      * Creates a new NodeConfig instance representing the final node configuration.
-     * This function is used to create a snapshot of the current node configuration,
-     * ensuring that modifications to the new instance do not affect the original node's state,
-     * particularly useful in recursive or multi-threaded environments.
+     * Basically sets the last known subtree options to be used as the default comparison options
+     * for the rest of the validation.
      *
      * @return A new NodeConfig instance with the current subtree options.
      */
-    fun asFinalNode(): NodeConfig {
+    private fun asFinalNode(): NodeConfig {
         // Should not modify self since other recursive function calls may still depend on children.
         // Instead, return a new instance with the proper values set
-        return NodeConfig(name = null, options = mutableMapOf(), subtreeOptions = subtreeOptions)
+        return NodeConfig(name = null, options = mutableMapOf(), subtreeOptions = deepCopySubtreeMap(subtreeOptions))
+    }
+
+    /**
+     * Provides access to the [Config] for a given option key at the [Scope.SingleNode] level.
+     */
+    fun getSingleNodeOption(key: OptionKey): Config? {
+        return options[key]
+    }
+
+    /**
+     * Provides access to the [Config] for a given option key at the [Scope.Subtree] level.
+     */
+    fun getSubtreeNodeOption(key: OptionKey): Config? {
+        return subtreeOptions[key]
     }
 
     /**
@@ -690,7 +778,7 @@ class NodeConfig {
      */
     fun createOrUpdateNode(pathConfig: PathConfig) {
         val pathComponents = getProcessedPathComponents(pathConfig.path)
-        updateTree(nodes = mutableListOf(this), pathConfig = pathConfig, pathComponents = pathComponents)
+        updateTree(mutableListOf(this), pathConfig, pathComponents)
     }
 
     /**
@@ -712,28 +800,46 @@ class NodeConfig {
                     // Propagate this subtree option update to all children
                     propagateSubtreeOption(node, pathConfig)
                 } else {
-                    node.options[pathConfig.optionKey] = pathConfig.config
+                    node.options[pathConfig.optionKey] = pathConfig.config.deepCopy()
                 }
             }
             return
         }
 
-        // Remove the first path component to progress the recursion by 1
+        // Path components are added in order - the first element is closer to the root
+        // Ex: "key1[0].key2[23]" -> ["key1", "0" (isArray), "key2", "23" (isArray)]
+        // Note: there cannot be collisions between array index names as strings and object key names
+        // as integer strings since the collection type itself during actual traversal prevents this overlap
         val pathComponent = pathComponents.removeFirst()
         val nextNodes = mutableListOf<NodeConfig>()
 
         nodes.forEach { node ->
-            // Note: the `[*]` case is processed as node name = "[*]" not node name = null
+            // Note: wildcard node names are the same as their reserved strings: `*` and `[*]`
             pathComponent.name?.let { pathComponentName ->
                 val child = findOrCreateChild(node, pathComponentName, pathComponent.isWildcard)
                 nextNodes.add(child)
 
+                // Current path component adds all existing specific index/key name children of the current node
+                // so that they also get the configuration from the wildcard applied to them too (wildcard is a superset)
                 if (pathComponent.isWildcard) {
                     nextNodes.addAll(node._children)
                 }
             }
         }
         updateTree(nextNodes, pathConfig, pathComponents)
+    }
+
+    private fun deepCopySubtreeMap(map: MutableMap<OptionKey, Config>): MutableMap<OptionKey, Config> {
+        val deepCopiedSubtreeOptions = map
+            .mapValues { it.value.deepCopy() }
+            .toMutableMap()
+            .apply {
+                // - Subtree options should always exist, but backup value defaults to false
+                // - ElementCount's requiredCount value should be removed for nodes that are not explicitly the
+                // node that had that option set, otherwise the expectation propagates improperly to all children
+                this[OptionKey.ElementCount] = Config(this[OptionKey.ElementCount]?.isActive ?: true, null)
+            }
+        return deepCopiedSubtreeOptions
     }
 
     /**
@@ -749,40 +855,34 @@ class NodeConfig {
         val objectPathComponents = getObjectPathComponents(pathString)
         val pathComponents = mutableListOf<PathComponent>()
         for (objectPathComponent in objectPathComponents) {
+            // Remove escaped dot notations from the path string name provided
             val key = objectPathComponent.replace("\\.", ".")
             // Extract the string part and array component part(s) from the key string
             val (stringComponent, arrayComponents) = getArrayPathComponents(key)
-            // Process string segment
+            // Process object key path components
             stringComponent?.let {
+                // Check if the current component is the reserved object key wildcard character: `*`
                 val isWildcard = stringComponent == "*"
-                if (isWildcard) {
-                    pathComponents.add(
-                        PathComponent(
-                            name = stringComponent,
-                            isAnyOrder = false,
-                            isArray = false,
-                            isWildcard = isWildcard
-                        )
+                pathComponents.add(
+                    PathComponent(
+                        // Remove escape character from escaped wildcard in original path when not interpreted
+                        // as a wildcard
+                        name = if (isWildcard) stringComponent else stringComponent.replace("\\*", "*"),
+                        isAnyOrder = false,
+                        isArray = false,
+                        isWildcard = isWildcard
                     )
-                } else {
-                    pathComponents.add(
-                        PathComponent(
-                            name = stringComponent.replace("\\*", "*"),
-                            isAnyOrder = false,
-                            isArray = false,
-                            isWildcard = isWildcard
-                        )
-                    )
-                }
+                )
             }
 
-            // Process array segment(s)
+            // Process array path components
             for (arrayComponent in arrayComponents) {
+                // Check if the current component is the reserved array wildcard index sequence: `[*]`
                 if (arrayComponent == "[*]") {
                     pathComponents.add(
                         PathComponent(
                             name = arrayComponent,
-                            isAnyOrder = true,
+                            isAnyOrder = false,
                             isArray = true,
                             isWildcard = true
                         )
@@ -811,29 +911,30 @@ class NodeConfig {
      * This method ensures that if the child node already exists, it is returned; otherwise, a new child node is created.
      * If a wildcard child node is needed, it either returns an existing wildcard child or creates a new one and assigns it.
      *
-     * @param node The parent node in which to find or create a child.
-     * @param name The name of the child node to find or create.
-     * @param isWildcard Indicates whether the child node to be created should be treated as a wildcard node.
+     * @param parentNode The parent node in which to find or create a child.
+     * @param childNodeName The name of the child node to find or create.
+     * @param childNodeIsWildcard Indicates whether the child node to be created should be treated as a wildcard node.
      * @return The found or newly created child node.
      */
-    private fun findOrCreateChild(node: NodeConfig, name: String, isWildcard: Boolean): NodeConfig {
-        return if (isWildcard) {
-            node.wildcardChildren ?: run {
+    private fun findOrCreateChild(parentNode: NodeConfig, childNodeName: String, childNodeIsWildcard: Boolean): NodeConfig {
+        return if (childNodeIsWildcard) {
+            parentNode.wildcardChildren ?: run {
                 // Apply subtreeOptions to the child
-                val newChild = NodeConfig(name = name, subtreeOptions = node.subtreeOptions)
-                node.wildcardChildren = newChild
+                val newChild = NodeConfig(name = childNodeName, subtreeOptions = deepCopySubtreeMap(parentNode.subtreeOptions))
+                parentNode.wildcardChildren = newChild
                 newChild
             }
         } else {
-            node._children.firstOrNull { it.name == name } ?: run {
-                // If a wildcard child already exists, use that as the base
-                node.wildcardChildren?.deepCopy()?.apply {
-                    this.name = name
-                    node._children.add(this)
+            parentNode._children.firstOrNull { it.name == childNodeName } ?: run {
+                // If a wildcard child already exists, use that as the base, deep copying its existing setup
+                parentNode.wildcardChildren?.deepCopy()?.apply {
+                    this.name = childNodeName
+                    parentNode._children.add(this)
+                    // If a wildcard child doesn't exist, create a new child from scratch
                 } ?: run {
                     // Apply subtreeOptions to the child
-                    val newChild = NodeConfig(name = name, subtreeOptions = node.subtreeOptions)
-                    node._children.add(newChild)
+                    val newChild = NodeConfig(name = childNodeName, subtreeOptions = deepCopySubtreeMap(parentNode.subtreeOptions))
+                    parentNode._children.add(newChild)
                     newChild
                 }
             }
@@ -850,13 +951,16 @@ class NodeConfig {
      */
     private fun propagateSubtreeOption(node: NodeConfig, pathConfig: PathConfig) {
         val key = pathConfig.optionKey
-        node.subtreeOptions[key] = pathConfig.config
-        // Should be impossible for subtree map to be missing keys; fix constructor if this ever results in NPE
-        node.wildcardChildren?.subtreeOptions?.set(key, node.subtreeOptions[key]!!)
+        // Set the subtree configuration for the current node and its wildcard config (if exists)
+        node.subtreeOptions[key] = pathConfig.config.deepCopy()
+        node.wildcardChildren?.subtreeOptions?.set(key, pathConfig.config.deepCopy())
         for (child in node._children) {
-            // Only propagate the subtree value for the current option key,
+            // Only propagate the subtree value for the specific option key,
             // otherwise, previously set subtree values will be reset to the default values
-            child.subtreeOptions[key] = node.subtreeOptions[key]!!
+            // NOTE: element counter is set to null so that only the first invocation of setting
+            // the subtree option has the counter applied; otherwise the same element counter requirement
+            // would also propagate to all children
+            child.subtreeOptions[key] = Config(pathConfig.config.isActive, null)
             propagateSubtreeOption(child, pathConfig)
         }
     }
@@ -896,64 +1000,6 @@ class NodeConfig {
         }
 
         return Pair(validIndex, isAnyOrder)
-    }
-
-    /**
-     * Finds all matches of the `regexPattern` in the `text` and for each match, returns the original matched `String`
-     * and its corresponding non-null capture groups.
-     *
-     * @param text The input `String` on which the regex matching is to be performed.
-     * @param regexPattern The regex pattern to be used for matching against the `text`.
-     * @return A list of pairs, where each pair consists of the original matched `String` and a list of its non-null capture groups.
-     *         Returns `null` if an invalid regex pattern is provided.
-     */
-    private fun extractRegexCaptureGroups(text: String, regexPattern: String): List<Pair<String, List<String>>>? {
-        return try {
-            val regex = Pattern.compile(regexPattern)
-            val matcher = regex.matcher(text)
-            val matchResult = mutableListOf<Pair<String, List<String>>>()
-
-            while (matcher.find()) {
-                val matchString = text.substring(matcher.start(), matcher.end())
-                val captureGroups = (1 until matcher.groupCount() + 1).mapNotNull {
-                    if (matcher.start(it) != -1 && matcher.end(it) != -1) text.substring(matcher.start(it), matcher.end(it)) else null
-                }
-                matchResult.add(Pair(matchString, captureGroups))
-            }
-
-            matchResult.takeIf { it.isNotEmpty() }
-        } catch (e: IllegalArgumentException) {
-            fail("Error: Invalid regex: ${e.message}")
-            null
-        }
-    }
-
-    /**
-     * Applies the provided regex pattern to the text and returns all the capture groups from the regex pattern.
-     *
-     * @param text The input `String` on which the regex matching is to be performed.
-     * @param regexPattern The regex pattern to be used for matching against the `text`.
-     * @return A list of all capture groups extracted from the regex pattern across all matches.
-     */
-    private fun getCapturedRegexGroups(text: String, regexPattern: String): List<String> {
-        return try {
-            val regex = Pattern.compile(regexPattern)
-            val matcher = regex.matcher(text)
-            val captureGroups = mutableListOf<String>()
-
-            while (matcher.find()) {
-                for (i in 1..matcher.groupCount()) {
-                    val captured = matcher.group(i)
-                    if (captured != null) {
-                        captureGroups.add(captured)
-                    }
-                }
-            }
-            captureGroups
-        } catch (e: IllegalArgumentException) {
-            fail("Error: Invalid regex: ${e.message}")
-            listOf() // Return an empty list after logging the failure
-        }
     }
 
     /**

@@ -12,14 +12,23 @@
 package com.adobe.marketing.mobile.util
 
 import androidx.annotation.VisibleForTesting
+import com.adobe.marketing.mobile.util.NodeConfig.OptionKey.AnyOrderMatch
+import com.adobe.marketing.mobile.util.NodeConfig.OptionKey.ElementCount
+import com.adobe.marketing.mobile.util.NodeConfig.OptionKey.KeyMustBeAbsent
+import com.adobe.marketing.mobile.util.NodeConfig.OptionKey.PrimitiveExactMatch
+import com.adobe.marketing.mobile.util.NodeConfig.Scope.SingleNode
+import com.adobe.marketing.mobile.util.NodeConfig.Scope.Subtree
 import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 
 object JSONAsserts {
+    data class ValidationResult(val isValid: Boolean, val elementCount: Int)
+
     /**
      * Asserts exact equality between two [JSONObject] or [JSONArray] instances.
      *
@@ -104,6 +113,8 @@ object JSONAsserts {
         val treeDefaults = listOf(
             AnyOrderMatch(isActive = false),
             CollectionEqualCount(isActive = false),
+            // ElementCount subtree default is set to `true` so that all elements are counted by default
+            ElementCount(null, isActive = true),
             KeyMustBeAbsent(isActive = false),
             ValueTypeMatch(),
             ValueNotEqual(isActive = false)
@@ -220,6 +231,8 @@ object JSONAsserts {
         val treeDefaults = listOf(
             AnyOrderMatch(isActive = false),
             CollectionEqualCount(isActive = false),
+            // ElementCount subtree default is set to `true` so that all elements are counted by default
+            ElementCount(null, isActive = true),
             KeyMustBeAbsent(isActive = false),
             ValueExactMatch(),
             ValueNotEqual(isActive = false)
@@ -422,13 +435,12 @@ object JSONAsserts {
             if (shouldAssert) {
                 fail(
                     """
-                Expected JSON is non-null but Actual JSON is null.
-    
-                Expected: $expected
-    
-                Actual: $actual
-    
-                Key path: ${keyPathAsString(keyPath)}
+                    Expected JSON is non-null but Actual JSON is null.
+        
+                    Expected: $expected
+                    Actual: $actual
+        
+                    Key path: ${keyPathAsString(keyPath)}
                     """.trimIndent()
                 )
             }
@@ -440,16 +452,15 @@ object JSONAsserts {
                 if (shouldAssert) {
                     fail(
                         """
-                    Expected JSON count does not match Actual JSON.
-
-                    Expected count: ${expected.length()}
-                    Actual count: ${actual.length()}
-
-                    Expected: $expected
-
-                    Actual: $actual
-
-                    Key path: ${keyPathAsString(keyPath)}
+                        Expected JSON count does not match Actual JSON.
+    
+                        Expected count: ${expected.length()}
+                        Actual count: ${actual.length()}
+    
+                        Expected: $expected
+                        Actual: $actual
+    
+                        Key path: ${keyPathAsString(keyPath)}
                         """.trimIndent()
                     )
                 }
@@ -459,16 +470,15 @@ object JSONAsserts {
             if (shouldAssert) {
                 fail(
                     """
-                Expected JSON has more elements than Actual JSON.
-
-                Expected count: ${expected.length()}
-                Actual count: ${actual.length()}
-
-                Expected: $expected
-
-                Actual: $actual
-
-                Key path: ${keyPathAsString(keyPath)}
+                    Expected JSON has more elements than Actual JSON.
+    
+                    Expected count: ${expected.length()}
+                    Actual count: ${actual.length()}
+    
+                    Expected: $expected
+                    Actual: $actual
+    
+                    Key path: ${keyPathAsString(keyPath)}
                     """.trimIndent()
                 )
             }
@@ -476,11 +486,7 @@ object JSONAsserts {
         }
 
         val expectedIndexes = (0 until expected.length()).associate { index ->
-            index.toString() to NodeConfig.resolveOption(
-                NodeConfig.OptionKey.AnyOrderMatch,
-                nodeTree.getChild(index),
-                nodeTree
-            )
+            index.toString() to NodeConfig.resolveOption(AnyOrderMatch, index, nodeTree)
         }.toMutableMap()
         val anyOrderIndexes = expectedIndexes.filter { it.value.isActive }
 
@@ -522,16 +528,15 @@ object JSONAsserts {
                 if (shouldAssert) {
                     fail(
                         """
-                    Wildcard ${if (NodeConfig.resolveOption(NodeConfig.OptionKey.PrimitiveExactMatch, nodeTree.getChild(index), nodeTree).isActive) "exact" else "type"}
-                    match found no matches on Actual side satisfying the Expected requirement.
-            
-                    Requirement: $nodeTree
-            
-                    Expected: ${expected[intIndex]}
-            
-                    Actual (remaining unmatched elements): ${availableWildcardActualIndexes.map { actual[it.toInt()] }}
-            
-                    Key path: ${keyPathAsString(keyPath)}
+                        Wildcard ${if (NodeConfig.resolveOption(PrimitiveExactMatch, index, nodeTree).isActive) "exact" else "type"}
+                        match found no matches on Actual side satisfying the Expected requirement.
+                
+                        Requirement: $nodeTree
+                
+                        Expected: ${expected[intIndex]}
+                        Actual (remaining unmatched elements): ${availableWildcardActualIndexes.map { actual[it.toInt()] }}
+                
+                        Key path: ${keyPathAsString(keyPath)}
                         """.trimIndent()
                     )
                 }
@@ -572,7 +577,6 @@ object JSONAsserts {
                     Expected JSON is non-null but Actual JSON is null.
         
                     Expected: $expected
-                    
                     Actual: $actual
         
                     Key path: ${keyPathAsString(keyPath)}
@@ -593,7 +597,6 @@ object JSONAsserts {
                     Actual count: ${actual.length()}
 
                     Expected: $expected
-
                     Actual: $actual
 
                     Key path: ${keyPathAsString(keyPath)}
@@ -612,7 +615,6 @@ object JSONAsserts {
                 Actual count: ${actual.length()}
 
                 Expected: $expected
-
                 Actual: $actual
 
                 Key path: ${keyPathAsString(keyPath)}
@@ -625,11 +627,9 @@ object JSONAsserts {
         var validationResult = true
 
         for (key in expected.keys()) {
-            val value = expected.get(key)
-            val actualValue = actual.opt(key)
             validationResult = validateJSON(
-                value,
-                actualValue,
+                expected.get(key),
+                actual.opt(key),
                 keyPath + key,
                 nodeTree.getNextNode(key),
                 shouldAssert
@@ -648,36 +648,31 @@ object JSONAsserts {
      * Note that this logic is meant to perform negative validation (for example, the absence of keys), and this means when `actual` nodes run out
      * validation automatically passes. Positive validation should use `expected` + `validateJSON`.
      *
-     * @param actual The value to be validated, wrapped in `AnyCodable`.
+     * @param actual The value to be validated, either [JSONObject] or [JSONArray].
      * @param keyPath An array representing the current traversal path in the node tree. Starts as an empty array.
      * @param nodeTree The root of the `NodeConfig` tree against which the validation is performed.
      * @return A `Boolean` indicating whether the `actual` value is valid based on the `nodeTree` configuration.
      */
-    fun validateActual(
+    private fun validateActual(
         actual: Any?,
         keyPath: List<Any> = listOf(),
         nodeTree: NodeConfig
-    ): Boolean {
-        val actualValue = actual ?: return true
-
-        return when (actualValue) {
+    ): ValidationResult {
+        return when (actual) {
             // Handle dictionaries
             is JSONObject -> validateActual(
-                actual = actualValue,
+                actual = actual,
                 keyPath = keyPath,
                 nodeTree = nodeTree
             )
             // Handle arrays
             is JSONArray -> validateActual(
-                actual = actualValue,
+                actual = actual,
                 keyPath = keyPath,
                 nodeTree = nodeTree
             )
             else -> {
-                // KeyMustBeAbsent check
-                // Value type validations currently do not have any options that should be handled by `actual`
-                // validation side - default is true
-                true
+                ValidationResult(true, 1)
             }
         }
     }
@@ -697,29 +692,44 @@ object JSONAsserts {
         actual: JSONArray?,
         keyPath: List<Any>,
         nodeTree: NodeConfig
-    ): Boolean {
-        val actualValues = actual ?: return true
-
+    ): ValidationResult {
         var validationResult = true
+        var singleNodeElementCount = 0
+        var subtreeElementCount = 0
 
-        for (index in 0 until actualValues.length()) {
-            validationResult = validateActual(
-                actual = actualValues.opt(index),
-                keyPath = keyPath.plus(index),
-                nodeTree = nodeTree.getNextNode(index)
-            ) && validationResult
+        if (actual != null) {
+            for (index in 0 until actual.length()) {
+                // ElementCount check
+                val currentElement = actual.opt(index)
+                val result = validateActual(currentElement, keyPath + index, nodeTree.getNextNode(index))
+                validationResult = result.isValid && validationResult
+                when (currentElement) {
+                    is JSONObject, is JSONArray -> {
+                        subtreeElementCount += result.elementCount
+                    }
+                    else -> {
+                        if (NodeConfig.resolveOption(ElementCount, index, nodeTree).isActive) {
+                            singleNodeElementCount += result.elementCount
+                        }
+                    }
+                }
+            }
         }
 
-        return validationResult
+        var totalElementCount = singleNodeElementCount + subtreeElementCount
+        validationResult = validateElementCount(SingleNode, keyPath, nodeTree, singleNodeElementCount) && validationResult
+        validationResult = validateElementCount(Subtree, keyPath, nodeTree, totalElementCount) && validationResult
+
+        return ValidationResult(validationResult, totalElementCount)
     }
 
     /**
-     * Validates a dictionary of `AnyCodable` values against the provided node configuration tree.
+     * Validates a dictionary of [JSONObject] values against the provided node configuration tree.
      *
      * This method iterates through each key-value pair in the given dictionary and performs validation
      * based on the provided `NodeConfig`.
      *
-     * @param actual The dictionary of `AnyCodable` values to be validated.
+     * @param actual The dictionary of [JSONObject] values to be validated.
      * @param keyPath An array representing the current path in the node tree during the traversal.
      * @param nodeTree The current node in the `NodeConfig` tree against which the `actual` values are validated.
      * @return A `Boolean` indicating whether all key-value pairs in the `actual` dictionary are valid according to the node tree configuration.
@@ -728,32 +738,85 @@ object JSONAsserts {
         actual: JSONObject?,
         keyPath: List<Any>,
         nodeTree: NodeConfig
-    ): Boolean {
-        val actualValues = actual ?: return true
-
+    ): ValidationResult {
         var validationResult = true
+        var singleNodeElementCount = 0
+        var subtreeElementCount = 0
 
-        for (key in actualValues.keys()) {
-            // KeyMustBeAbsent check
-            // Check for keys that must be absent in the current node
-            val resolvedKeyMustBeAbsent = NodeConfig.resolveOption(NodeConfig.OptionKey.KeyMustBeAbsent, nodeTree.getChild(key), nodeTree)
-            if (resolvedKeyMustBeAbsent.isActive) {
-                fail(
-                    """
-                Actual JSON should not have key with name: $key
+        if (actual != null) {
+            for (key in actual.keys()) {
+                // KeyMustBeAbsent check
+                // Check for keys that must be absent in the current node
+                NodeConfig.resolveOption(KeyMustBeAbsent, key, nodeTree)
+                    .takeIf { it.isActive }
+                    ?.let {
+                        fail(
+                            """
+                            Actual JSON must not have key with name: $key
+                
+                            Actual: $actual
+                
+                            Key path: ${keyPathAsString(keyPath + listOf(key))}
+                            """.trimIndent()
+                        )
+                        validationResult = false
+                    }
 
-                Actual: $actualValues
-
-                Key path: ${keyPathAsString(keyPath + listOf(key))}
-                    """.trimIndent()
-                )
-                validationResult = false
+                // ElementCount check
+                val currentElement = actual.get(key)
+                val result = validateActual(currentElement, keyPath + key, nodeTree.getNextNode(key))
+                validationResult = result.isValid && validationResult
+                when (currentElement) {
+                    is JSONObject, is JSONArray -> {
+                        subtreeElementCount += result.elementCount
+                    }
+                    else -> {
+                        if (NodeConfig.resolveOption(ElementCount, key, nodeTree).isActive) {
+                            singleNodeElementCount += result.elementCount
+                        }
+                    }
+                }
             }
-            validationResult = validateActual(
-                actual = actualValues.get(key),
-                keyPath = keyPath.plus(key),
-                nodeTree = nodeTree.getNextNode(key)
-            ) && validationResult
+        }
+
+        var totalElementCount = singleNodeElementCount + subtreeElementCount
+        validationResult = validateElementCount(SingleNode, keyPath, nodeTree, singleNodeElementCount) && validationResult
+        validationResult = validateElementCount(Subtree, keyPath, nodeTree, totalElementCount) && validationResult
+
+        return ValidationResult(validationResult, totalElementCount)
+    }
+
+    /**
+     * Validates that the element count for a given scope is satisfied within the node configuration.
+     * Used to validate [ElementCount] assertions.
+     *
+     * @param scope The scope of the element count check, either SingleNode or Subtree.
+     * @param keyPath The current path in the JSON hierarchy traversal. Used for test failure message info.
+     * @param node The current node in the NodeConfig tree against which the element count is validated.
+     * @param elementCount The actual count of elements to be validated.
+     * @return `true` if the element count is satisfied, `false` otherwise.
+     */
+    private fun validateElementCount(scope: NodeConfig.Scope, keyPath: List<Any>, node: NodeConfig, elementCount: Int): Boolean {
+        var validationResult = true
+        val config = when (scope) {
+            SingleNode -> node.getSingleNodeOption(ElementCount)
+            Subtree -> node.getSubtreeNodeOption(ElementCount)
+        }
+        // Check if the element count is satisfied
+        config?.takeIf { it.isActive && it.elementCount != null }?.also {
+            validationResult = it.elementCount == elementCount
+            assertTrue(
+                """
+                The ${if (scope == NodeConfig.Scope.Subtree) "subtree" else "single node"} expected element count 
+                is not equal to the actual number of elements.
+    
+                Expected count: ${it.elementCount}
+                Actual count: $elementCount
+    
+                Key path: ${keyPathAsString(keyPath)}
+                """.trimIndent(),
+                validationResult
+            )
         }
         return validationResult
     }
@@ -768,7 +831,6 @@ object JSONAsserts {
      * @param pathOptions An array of path `String`s to be processed. Each path represents a nested structure to be transformed
      * into a tree-like dictionary.
      * @param treeDefaults Defaults used for tree configuration.
-     * @param isLegacyMode Flag to determine whether legacy mode is used.
      * @return A tree-like dictionary structure representing the nested structure of the provided paths. Returns `null` if the
      * resulting tree is empty.
      */
