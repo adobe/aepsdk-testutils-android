@@ -733,7 +733,7 @@ class NodeConfig {
     private fun asFinalNode(): NodeConfig {
         // Should not modify self since other recursive function calls may still depend on children.
         // Instead, return a new instance with the proper values set
-        return NodeConfig(name = null, options = mutableMapOf(), subtreeOptions = deepCopySubtreeMap(subtreeOptions))
+        return NodeConfig(name = null, options = mutableMapOf(), subtreeOptions = deepCopySubtreeOptionsWithElementCountReset(subtreeOptions))
     }
 
     /**
@@ -829,7 +829,7 @@ class NodeConfig {
         updateTree(nextNodes, pathConfig, pathComponents)
     }
 
-    private fun deepCopySubtreeMap(map: MutableMap<OptionKey, Config>): MutableMap<OptionKey, Config> {
+    private fun deepCopySubtreeOptionsWithElementCountReset(map: MutableMap<OptionKey, Config>): MutableMap<OptionKey, Config> {
         val deepCopiedSubtreeOptions = map
             .mapValues { it.value.deepCopy() }
             .toMutableMap()
@@ -920,7 +920,7 @@ class NodeConfig {
         return if (childNodeIsWildcard) {
             parentNode.wildcardChildren ?: run {
                 // Apply subtreeOptions to the child
-                val newChild = NodeConfig(name = childNodeName, subtreeOptions = deepCopySubtreeMap(parentNode.subtreeOptions))
+                val newChild = NodeConfig(name = childNodeName, subtreeOptions = deepCopySubtreeOptionsWithElementCountReset(parentNode.subtreeOptions))
                 parentNode.wildcardChildren = newChild
                 newChild
             }
@@ -933,7 +933,7 @@ class NodeConfig {
                     // If a wildcard child doesn't exist, create a new child from scratch
                 } ?: run {
                     // Apply subtreeOptions to the child
-                    val newChild = NodeConfig(name = childNodeName, subtreeOptions = deepCopySubtreeMap(parentNode.subtreeOptions))
+                    val newChild = NodeConfig(name = childNodeName, subtreeOptions = deepCopySubtreeOptionsWithElementCountReset(parentNode.subtreeOptions))
                     parentNode._children.add(newChild)
                     newChild
                 }
@@ -943,25 +943,27 @@ class NodeConfig {
 
     /**
      * Propagates a subtree option from the given path configuration to the specified node and all its descendants.
-     * This function recursively ensures that the specified option is applied consistently throughout the subtree
-     * originating from the given node.
+     * In the ElementCount case, removes the element count assertion when propagating to child nodes.
      *
      * @param node The node from which to start propagating the subtree option.
      * @param pathConfig The configuration containing the option to propagate.
      */
     private fun propagateSubtreeOption(node: NodeConfig, pathConfig: PathConfig) {
         val key = pathConfig.optionKey
-        // Set the subtree configuration for the current node and its wildcard config (if exists)
+        // Set the subtree configuration for the current node and its wildcard config (if it exists)
         node.subtreeOptions[key] = pathConfig.config.deepCopy()
-        node.wildcardChildren?.subtreeOptions?.set(key, pathConfig.config.deepCopy())
+        // A non-null elementCount means the ElementCount assertion is active at the given node;
+        // however, child nodes (including wildcard children) should not inherit this assertion.
+        // The element counter is set to null so that while the direct path target of the subtree
+        // option has the counter applied, this assertion is not propagated to any children.
+        val elementCountRemovedConfig = Config(pathConfig.config.isActive, null)
+        node.wildcardChildren?.subtreeOptions?.set(key, elementCountRemovedConfig)
+        val elementCountRemovedPathConfig = PathConfig(elementCountRemovedConfig, pathConfig.scope, pathConfig.path, pathConfig.optionKey)
         for (child in node._children) {
             // Only propagate the subtree value for the specific option key,
             // otherwise, previously set subtree values will be reset to the default values
-            // NOTE: element counter is set to null so that only the first invocation of setting
-            // the subtree option has the counter applied; otherwise the same element counter requirement
-            // would also propagate to all children
-            child.subtreeOptions[key] = Config(pathConfig.config.isActive, null)
-            propagateSubtreeOption(child, pathConfig)
+            child.subtreeOptions[key] = elementCountRemovedPathConfig.config
+            propagateSubtreeOption(child, elementCountRemovedPathConfig)
         }
     }
 
