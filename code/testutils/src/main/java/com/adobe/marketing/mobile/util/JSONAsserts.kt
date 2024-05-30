@@ -672,6 +672,20 @@ object JSONAsserts {
                 nodeTree = nodeTree
             )
             else -> {
+                // Check SingleNode and Subtree options set for ElementCount for this specific node.
+                // If it hits this case, then the ElementCount assertion was set on a non-collection type element
+                // and should emit a test failure.
+                if (nodeTree.getSingleNodeOption(ElementCount)?.elementCount != null || nodeTree.getSubtreeNodeOption(ElementCount)?.elementCount != null) {
+                    fail(
+                        """
+                        Invalid ElementCount assertion on a non-collection element.
+                        Remove ElementCount requirements from this key path in the test setup.
+            
+                        Key path: ${keyPathAsString(keyPath)}
+                        """.trimIndent()
+                    )
+                    ValidationResult(false, 1)
+                }
                 ValidationResult(true, 1)
             }
         }
