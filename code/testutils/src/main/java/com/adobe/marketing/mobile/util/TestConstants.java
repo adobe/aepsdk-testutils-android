@@ -41,6 +41,7 @@ public class TestConstants {
 		public static final String STATE_STORE = "state:store";
 		public static final String UNREGISTER = "com.adobe.eventSource.unregister";
 		public static final String XDM_SHARED_STATE_REQUEST = "com.adobe.eventSource.xdmsharedStateRequest";
+		public static final String XDM_SHARED_STATE_RESPONSE = "com.adobe.eventSource.xdmsharedStateResponse";
 
 		private EventSource() {}
 	}

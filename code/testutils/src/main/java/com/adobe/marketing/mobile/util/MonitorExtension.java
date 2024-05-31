@@ -29,6 +29,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
+/**
+ * A third party extension class aiding for assertion against dispatched events, shared state
+ * and XDM shared state.
+ */
 public class MonitorExtension extends Extension {
 
 	public static final Class<? extends Extension> EXTENSION = MonitorExtension.class;
@@ -106,6 +110,8 @@ public class MonitorExtension extends Extension {
 		if (TestConstants.EventType.MONITOR.equalsIgnoreCase(event.getType())) {
 			if (TestConstants.EventSource.SHARED_STATE_REQUEST.equalsIgnoreCase(event.getSource())) {
 				processSharedStateRequest(event);
+			} else if (TestConstants.EventSource.XDM_SHARED_STATE_REQUEST.equalsIgnoreCase(event.getSource())) {
+				processXDMSharedStateRequest(event);
 			} else if (TestConstants.EventSource.UNREGISTER.equalsIgnoreCase(event.getSource())) {
 				processUnregisterRequest(event);
 			}
@@ -155,6 +161,39 @@ public class MonitorExtension extends Extension {
 			.setEventData(sharedStateResult != null ? sharedStateResult.getValue() : new HashMap<>())
 			.inResponseToEvent(event)
 			.build();
+		MobileCore.dispatchEvent(responseEvent);
+	}
+
+	/**
+	 * Processor which retrieves and dispatches the XDM shared state for the state owner specified
+	 * in the request.
+	 * @param event the event to be processed
+	 */
+	private void processXDMSharedStateRequest(final Event event) {
+		final Map<String, Object> eventData = event.getEventData();
+
+		if (eventData == null) {
+			return;
+		}
+
+		final String stateOwner = DataReader.optString(eventData, TestConstants.EventDataKey.STATE_OWNER, null);
+
+		if (stateOwner == null) {
+			return;
+		}
+
+		final SharedStateResult sharedStateResult = getApi()
+			.getXDMSharedState(stateOwner, event, false, SharedStateResolution.LAST_SET);
+
+		Event responseEvent = new Event.Builder(
+			"Get Shared State Response",
+			TestConstants.EventType.MONITOR,
+			TestConstants.EventSource.XDM_SHARED_STATE_RESPONSE
+		)
+			.setEventData(sharedStateResult == null ? null : sharedStateResult.getValue())
+			.inResponseToEvent(event)
+			.build();
+
 		MobileCore.dispatchEvent(responseEvent);
 	}
 
