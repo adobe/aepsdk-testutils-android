@@ -484,6 +484,7 @@ public class TestHelper {
 	/**
 	 * Synchronous call to get the shared state for the specified {@code stateOwner}.
 	 * This API throws an assertion failure in case of timeout.
+	 *
 	 * @param stateOwner the owner extension of the shared state (typically the name of the extension)
 	 * @param timeout how long should this method wait for the requested shared state, in milliseconds
 	 * @return latest shared state of the given {@code stateOwner} or null if no shared state was found
@@ -509,7 +510,7 @@ public class TestHelper {
 		final Map<String, Object> sharedState = new HashMap<>();
 		MobileCore.dispatchEventWithResponseCallback(
 			event,
-			5000,
+			TestConstants.Defaults.WAIT_SHARED_STATE_TIMEOUT_MS,
 			new AdobeCallbackWithError<Event>() {
 				@Override
 				public void call(final Event event) {
@@ -529,6 +530,57 @@ public class TestHelper {
 						stateOwner,
 						adobeError.getErrorName()
 					);
+				}
+			}
+		);
+
+		assertTrue("Timeout waiting for shared state " + stateOwner, latch.await(timeout, TimeUnit.MILLISECONDS));
+		return sharedState.isEmpty() ? null : sharedState;
+	}
+
+	/**
+	 * Synchronous call to get the XDM shared state for the specified {@code stateOwner}.
+	 * This API throws an assertion failure in case of timeout.
+	 *
+	 * @param stateOwner the owner extension of the shared state (typically the name of the extension)
+	 * @param timeout    how long should this method wait for the requested shared state, in milliseconds
+	 * @return latest shared state of the given {@code stateOwner} or null if no shared state was found
+	 * @throws InterruptedException
+	 */
+	public static Map<String, Object> getXDMSharedStateFor(final String stateOwner, int timeout)
+		throws InterruptedException {
+		Event event = new Event.Builder(
+			"Get Shared State Request",
+			TestConstants.EventType.MONITOR,
+			TestConstants.EventSource.XDM_SHARED_STATE_REQUEST
+		)
+			.setEventData(
+				new HashMap<String, Object>() {
+					{
+						put(TestConstants.EventDataKey.STATE_OWNER, stateOwner);
+					}
+				}
+			)
+			.build();
+
+		final ADBCountDownLatch latch = new ADBCountDownLatch(1);
+		final Map<String, Object> sharedState = new HashMap<>();
+		MobileCore.dispatchEventWithResponseCallback(
+			event,
+			TestConstants.Defaults.WAIT_SHARED_STATE_TIMEOUT_MS,
+			new AdobeCallbackWithError<Event>() {
+				@Override
+				public void fail(AdobeError adobeError) {
+					Log.debug(LOG_TAG, LOG_SOURCE, "Failed to get shared state for " + stateOwner + ": " + adobeError);
+				}
+
+				@Override
+				public void call(Event event) {
+					if (event.getEventData() != null) {
+						sharedState.putAll(event.getEventData());
+					}
+
+					latch.countDown();
 				}
 			}
 		);

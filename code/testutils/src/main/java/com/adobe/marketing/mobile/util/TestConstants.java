@@ -40,6 +40,7 @@ public class TestConstants {
 		public static final String SHARED_STATE_RESPONSE = "com.adobe.eventSource.sharedStateResponse";
 		public static final String STATE_STORE = "state:store";
 		public static final String UNREGISTER = "com.adobe.eventSource.unregister";
+		public static final String XDM_SHARED_STATE_REQUEST = "com.adobe.eventSource.xdmsharedStateRequest";
 
 		private EventSource() {}
 	}
@@ -49,7 +50,7 @@ public class TestConstants {
 		public static final int WAIT_TIMEOUT_MS = 1000;
 		public static final int WAIT_NETWORK_REQUEST_TIMEOUT_MS = 2000;
 		public static final int WAIT_EVENT_TIMEOUT_MS = 2000;
-		public static final int WAIT_SHARED_STATE_TIMEOUT_MS = 3000;
+		public static final int WAIT_SHARED_STATE_TIMEOUT_MS = 5000;
 
 		public static final String EXEDGE_INTERACT_URL_STRING = "https://edge.adobedc.net/ee/v1/interact";
 		public static final String EXEDGE_INTERACT_OR2_LOC_URL_STRING = "https://edge.adobedc.net/ee/or2/v1/interact";
