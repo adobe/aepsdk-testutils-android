@@ -187,7 +187,7 @@ public class TestHelper {
 	 *
 	 * @param timeoutMillis max waiting time
 	 */
-	static void waitForThreads(final int timeoutMillis) {
+	public static void waitForThreads(final int timeoutMillis) {
 		int TEST_DEFAULT_TIMEOUT_MS = 1000;
 		int TEST_DEFAULT_SLEEP_MS = 50;
 		int TEST_INITIAL_SLEEP_MS = 100;
