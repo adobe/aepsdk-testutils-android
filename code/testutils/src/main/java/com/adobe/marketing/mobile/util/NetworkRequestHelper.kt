@@ -30,12 +30,14 @@ import java.util.concurrent.TimeUnit
 class NetworkRequestHelper {
     private val _networkRequests: MutableList<TestableNetworkRequest> = mutableListOf()
     // Read-only access to network requests
-    val networkRequests: List<NetworkRequest>
+    val networkRequests: List<TestableNetworkRequest>
         get() = _networkRequests
+
     private val _networkResponses: MutableMap<TestableNetworkRequest, MutableList<HttpConnecting?>> = HashMap()
     // Read-only access to network responses
-    val networkResponses: Map<TestableNetworkRequest, MutableList<HttpConnecting?>>
-        get() = _networkResponses
+    val networkResponses: Map<TestableNetworkRequest, List<HttpConnecting?>>
+        get() = _networkResponses.mapValues { it.value.toList() }
+
     private val expectedNetworkRequests: MutableMap<TestableNetworkRequest, ADBCountDownLatch> = HashMap()
 
     companion object {
@@ -45,16 +47,16 @@ class NetworkRequestHelper {
     /**
      * Records a sent network request.
      *
-     * @param networkRequest The network request that is to be recorded.
+     * @param request The [TestableNetworkRequest] that is to be recorded.
      */
-    fun recordNetworkRequest(networkRequest: NetworkRequest) {
+    fun recordNetworkRequest(request: TestableNetworkRequest) {
         Log.trace(
             TestConstants.LOG_TAG,
             LOG_SOURCE,
-            "Recording network request with URL ${networkRequest.url} and HTTPMethod ${networkRequest.method}"
+            "Recording network request with URL ${request.url} and HTTPMethod ${request.method}"
         )
 
-        _networkRequests.add(TestableNetworkRequest(networkRequest))
+        _networkRequests.add(request)
     }
 
     /**
@@ -74,10 +76,10 @@ class NetworkRequestHelper {
     /**
      * Decrements the expectation count for a given network request.
      *
-     * @param request The [NetworkRequest] for which the expectation count should be decremented.
+     * @param request The [TestableNetworkRequest] for which the expectation count should be decremented.
      */
-    fun countDownExpected(request: NetworkRequest) {
-        expectedNetworkRequests[TestableNetworkRequest(request)]?.countDown()
+    fun countDownExpected(request: TestableNetworkRequest) {
+        expectedNetworkRequests[request]?.countDown()
     }
 
     /**
@@ -93,8 +95,8 @@ class NetworkRequestHelper {
      * @throws InterruptedException If the current thread is interrupted while waiting.
      */
     @Throws(InterruptedException::class)
-    fun awaitRequest(request: NetworkRequest, timeoutMillis: Int, waitForUnexpectedEvents: Boolean = true) {
-        val expectation = expectedNetworkRequests[TestableNetworkRequest(request)]
+    fun awaitRequest(request: TestableNetworkRequest, timeoutMillis: Int, waitForUnexpectedEvents: Boolean = true) {
+        val expectation = expectedNetworkRequests[request]
         if (expectation != null) {
             val awaitResult = expectation.await(timeoutMillis.toLong(), TimeUnit.MILLISECONDS)
             // Verify that the expectation passes within the given timeout
@@ -129,11 +131,11 @@ class NetworkRequestHelper {
      *
      * The matching logic relies on [TestableNetworkRequest.equals].
      *
-     * @param request The [NetworkRequest] for which to get matching requests.
+     * @param request The [TestableNetworkRequest] for which to get matching requests.
      *
-     * @return A list of [NetworkRequest]s that match the provided [request]. If no matches are found, an empty list is returned.
+     * @return A list of [TestableNetworkRequest]s that match the provided [request]. If no matches are found, an empty list is returned.
      */
-    fun getRequestsMatching(request: NetworkRequest): List<NetworkRequest> {
+    fun getRequestsMatching(request: TestableNetworkRequest): List<TestableNetworkRequest> {
         return _networkRequests.filter { it == request }
     }
 
@@ -141,53 +143,51 @@ class NetworkRequestHelper {
      * Adds a network response for the provided network request. If a response already exists, adds
      * the given response to the end of the list.
      *
-     * @param request The [NetworkRequest] for which the response will be set.
+     * @param request The [TestableNetworkRequest] for which the response will be set.
      * @param responseConnection The [HttpConnecting] to add as a response.
      */
     fun addResponseFor(
-        request: NetworkRequest,
+        request: TestableNetworkRequest,
         responseConnection: HttpConnecting?
     ) {
-        val testableRequest = TestableNetworkRequest(request)
-        if (_networkResponses[testableRequest] != null) {
-            _networkResponses[testableRequest]?.add(responseConnection)
+        if (_networkResponses[request] != null) {
+            _networkResponses[request]?.add(responseConnection)
         } else {
             // If there's no response for this request yet, start a new list with the first response
-            _networkResponses[testableRequest] = mutableListOf(responseConnection)
+            _networkResponses[request] = mutableListOf(responseConnection)
         }
     }
 
     /**
      * Removes all network responses for the provided network request.
      *
-     * @param request The [NetworkRequest] for which all responses will be removed.
+     * @param request The [TestableNetworkRequest] for which all responses will be removed.
      */
-    fun removeResponsesFor(request: NetworkRequest) {
-        val testableRequest = TestableNetworkRequest(request)
-        _networkResponses.remove(testableRequest)
+    fun removeResponsesFor(request: TestableNetworkRequest) {
+        _networkResponses.remove(request)
     }
 
     /**
      * Returns the network responses for the given network request.
      *
-     * @param request The [NetworkRequest] for which the associated responses should be returned.
+     * @param request The [TestableNetworkRequest] for which the associated responses should be returned.
      * @return The list of [HttpConnecting] responses for the given request or `null` if not found.
      * @see [TestableNetworkRequest.equals] for the logic used to match network requests.
      */
-    fun getResponsesFor(request: NetworkRequest): List<HttpConnecting?>? {
-        return _networkResponses[TestableNetworkRequest(request)]
+    fun getResponsesFor(request: TestableNetworkRequest): List<HttpConnecting?>? {
+        return _networkResponses[request]
     }
 
     /**
      * Sets the expected number of times a network request should be sent. If there is already an existing expectation
      * for the same request, it is replaced with the new value.
      *
-     * @param request The [NetworkRequest] to set the expectation for.
+     * @param request The [TestableNetworkRequest] to set the expectation for.
      * @param count The expected number of times the request should be sent.
      * @see [assertAllNetworkRequestExpectations] for checking all expectations.
      */
-    fun setExpectationFor(request: NetworkRequest, count: Int) {
-        expectedNetworkRequests[TestableNetworkRequest(request)] = ADBCountDownLatch(count)
+    fun setExpectationFor(request: TestableNetworkRequest, count: Int) {
+        expectedNetworkRequests[request] = ADBCountDownLatch(count)
     }
 
     /**
@@ -258,7 +258,7 @@ class NetworkRequestHelper {
         url: String,
         method: HttpMethod,
         timeoutMillis: Int = TestConstants.Defaults.WAIT_NETWORK_REQUEST_TIMEOUT_MS
-    ): List<NetworkRequest> {
+    ): List<TestableNetworkRequest> {
         val testableRequest = TestableNetworkRequest(url, method)
         awaitRequest(testableRequest, timeoutMillis)
         return getRequestsMatching(testableRequest)
