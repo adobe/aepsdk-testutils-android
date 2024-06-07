@@ -46,8 +46,11 @@ class MockNetworkService : Networking {
      */
     val connectAsyncCallCount: Int
         get() {
+            // Assumes that `NetworkRequestHelper.recordSentNetworkRequest` is always called by `connectAsync`.
+            // If this assumption changes, this flag logic needs to be updated.
             return helper.networkRequests.count()
         }
+
     // Simulating the async network service
     private val executorService: ExecutorService = Executors.newCachedThreadPool()
 
@@ -79,15 +82,23 @@ class MockNetworkService : Networking {
         }
     }
 
-    override fun connectAsync(networkRequest: NetworkRequest, resultCallback: NetworkCallback?) {
+    override fun connectAsync(networkRequest: NetworkRequest?, resultCallback: NetworkCallback?) {
+        val request = TestableNetworkRequest.from(networkRequest)
+        if (request == null) {
+            Log.error(
+                TestConstants.LOG_TAG,
+                LOG_SOURCE,
+                "Received null network request. Early exiting connectAsync method."
+            )
+            return
+        }
         Log.trace(
             TestConstants.LOG_TAG,
             LOG_SOURCE,
-            "Received connectUrlAsync to URL '${networkRequest.url}' and HttpMethod '${networkRequest.method.name}'."
+            "Received connectUrlAsync to URL '${request.url}' and HttpMethod '${request.method.name}'."
         )
 
-        helper.recordNetworkRequest(networkRequest)
-        val testableNetworkRequest = TestableNetworkRequest(networkRequest)
+        helper.recordNetworkRequest(request)
 
         executorService.submit {
             if (resultCallback != null) {
@@ -100,12 +111,12 @@ class MockNetworkService : Networking {
                 }
                 // Since null responses are valid responses, only use the default response if no response
                 // has been set for this request.
-                val responses = helper.getResponsesFor(networkRequest)
+                val responses = helper.getResponsesFor(request)
                 val response = if (responses != null) responses.firstOrNull() else defaultResponse
                 resultCallback.call(response)
                 // Do countdown after notifying completion handler to avoid prematurely ungating awaits
                 // before required network logic finishes
-                helper.countDownExpected(testableNetworkRequest)
+                helper.countDownExpected(request)
             }
         }
     }
@@ -223,7 +234,7 @@ class MockNetworkService : Networking {
     /**
      * Immediately returns all sent network requests (if any) **without awaiting**.
      */
-    fun getAllNetworkRequests(): List<NetworkRequest> {
+    fun getAllNetworkRequests(): List<TestableNetworkRequest> {
         return helper.networkRequests
     }
 
@@ -237,7 +248,7 @@ class MockNetworkService : Networking {
      * @param timeoutMillis The duration (in milliseconds) to wait for the expected network requests before
      * timing out. Defaults to [TestConstants.Defaults.WAIT_NETWORK_REQUEST_TIMEOUT_MS].
      *
-     * @return A list of matching [NetworkRequest]s. Returns an empty list if no matching requests were dispatched.
+     * @return A list of matching [TestableNetworkRequest]s. Returns an empty list if no matching requests were dispatched.
      *
      * @throws InterruptedException If the current thread is interrupted while waiting.
      *
@@ -249,7 +260,7 @@ class MockNetworkService : Networking {
         url: String,
         method: HttpMethod,
         timeoutMillis: Int = TestConstants.Defaults.WAIT_NETWORK_REQUEST_TIMEOUT_MS
-    ): List<NetworkRequest> {
+    ): List<TestableNetworkRequest> {
         return helper.getNetworkRequestsWith(url, method, timeoutMillis)
     }
 
