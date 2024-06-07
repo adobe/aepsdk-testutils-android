@@ -14,6 +14,7 @@ package com.adobe.marketing.mobile.util;
 import static com.adobe.marketing.mobile.util.TestConstants.LOG_TAG;
 
 import com.adobe.marketing.mobile.services.Log;
+import com.adobe.marketing.mobile.services.NetworkRequest;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -112,6 +113,26 @@ public class TestUtils {
 		} else if (jsonNode.isValueNode()) {
 			ValueNode valueNode = (ValueNode) jsonNode;
 			map.put(currentPath, valueNode.asText());
+		}
+	}
+
+	/**
+	 * Converts the body of a given {@link NetworkRequest} to a {@link JSONObject}.
+	 *
+	 * @param networkRequest The {@link NetworkRequest} containing the body to be converted. May be {@code null}.
+	 * @return A {@link JSONObject} representing the body of the {@link NetworkRequest}, or {@code null} if the body is {@code null} or cannot be converted.
+	 */
+	public static JSONObject getPayloadJson(NetworkRequest networkRequest) {
+		if (networkRequest == null || networkRequest.getBody() == null) {
+			return null;
+		}
+
+		String payload = new String(networkRequest.getBody());
+		try {
+			return new JSONObject(payload);
+		} catch (Exception e) {
+			Log.error(LOG_TAG, LOG_SOURCE, "Failed to create JSONObject from payload: " + e.getMessage());
+			return null;
 		}
 	}
 }
