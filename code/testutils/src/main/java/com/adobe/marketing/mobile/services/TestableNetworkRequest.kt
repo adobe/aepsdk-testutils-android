@@ -124,7 +124,7 @@ class TestableNetworkRequest @JvmOverloads constructor(
      *
      * @return A [JSONObject] representation of the body if it is valid JSON, otherwise null.
      */
-    private fun getBodyJson(): JSONObject? {
+    fun getBodyJson(): JSONObject? {
         val payload = body?.let { String(it) } ?: return null
         return try {
             JSONObject(payload)
