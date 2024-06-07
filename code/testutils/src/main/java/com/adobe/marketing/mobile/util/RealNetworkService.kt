@@ -13,11 +13,11 @@ package com.adobe.marketing.mobile.util
 
 import com.adobe.marketing.mobile.services.HttpConnecting
 import com.adobe.marketing.mobile.services.HttpMethod
+import com.adobe.marketing.mobile.services.Log
 import com.adobe.marketing.mobile.services.NetworkCallback
 import com.adobe.marketing.mobile.services.NetworkRequest
 import com.adobe.marketing.mobile.services.NetworkServiceHelper
 import com.adobe.marketing.mobile.services.TestableNetworkRequest
-import org.junit.Assert.fail
 
 /**
  * An override of `NetworkService` used for tests that require real outgoing network requests. Provides
@@ -35,13 +35,29 @@ class RealNetworkService : NetworkServiceHelper() {
             // If this assumption changes, this flag logic needs to be updated.
             return helper.networkRequests.isNotEmpty()
         }
+    /**
+     * How many times the [connectAsync] method was called.
+     * Note that this property does not await and returns the value immediately.
+     */
+    val connectAsyncCallCount: Int
+        get() {
+            // Assumes that `NetworkRequestHelper.recordSentNetworkRequest` is always called by `connectAsync`.
+            // If this assumption changes, this flag logic needs to be updated.
+            return helper.networkRequests.count()
+        }
+
     companion object {
         private const val LOG_SOURCE = "RealNetworkService"
     }
 
     override fun connectAsync(request: NetworkRequest?, callback: NetworkCallback?) {
+        val request = TestableNetworkRequest.from(request)
         if (request == null) {
-            fail("connectAsync called with null network request.")
+            Log.error(
+                TestConstants.LOG_TAG,
+                LOG_SOURCE,
+                "Received null network request. Early exiting connectAsync method."
+            )
             return
         }
         helper.recordNetworkRequest(request)
@@ -65,7 +81,9 @@ class RealNetworkService : NetworkServiceHelper() {
      * @see [assertAllNetworkRequestExpectations]
      */
     fun getResponsesFor(request: NetworkRequest): List<HttpConnecting?>? {
-        return helper.getResponsesFor(request)
+        return TestableNetworkRequest.from(request)?.let {
+            helper.getResponsesFor(it)
+        }
     }
 
     // Passthrough for shared helper APIs
@@ -86,7 +104,7 @@ class RealNetworkService : NetworkServiceHelper() {
     /**
      * Immediately returns all sent network requests (if any) **without awaiting**.
      */
-    fun getAllNetworkRequests(): List<NetworkRequest> {
+    fun getAllNetworkRequests(): List<TestableNetworkRequest> {
         return helper.networkRequests
     }
 
@@ -95,8 +113,8 @@ class RealNetworkService : NetworkServiceHelper() {
      *
      * Use this method after calling [setExpectationForNetworkRequest] to wait for expected requests.
      *
-     * @param url The URL `String` of the [TestableNetworkRequest] to get.
-     * @param method The [HttpMethod] of the [TestableNetworkRequest] to get.
+     * @param url The URL `String` of the [NetworkRequest] to get.
+     * @param method The [HttpMethod] of the [NetworkRequest] to get.
      * @param timeoutMillis The duration (in milliseconds) to wait for the expected network requests before
      * timing out. Defaults to [TestConstants.Defaults.WAIT_NETWORK_REQUEST_TIMEOUT_MS].
      *
@@ -113,7 +131,7 @@ class RealNetworkService : NetworkServiceHelper() {
         url: String,
         method: HttpMethod,
         timeoutMillis: Int = TestConstants.Defaults.WAIT_NETWORK_REQUEST_TIMEOUT_MS
-    ): List<NetworkRequest> {
+    ): List<TestableNetworkRequest> {
         return helper.getNetworkRequestsWith(url, method, timeoutMillis)
     }
 
@@ -149,6 +167,8 @@ class RealNetworkService : NetworkServiceHelper() {
         networkRequest: NetworkRequest,
         expectedCount: Int
     ) {
-        helper.setExpectationFor(networkRequest, expectedCount)
+        TestableNetworkRequest.from(networkRequest)?.let {
+            helper.setExpectationFor(it, expectedCount)
+        }
     }
 }
