@@ -12,6 +12,8 @@
 package com.adobe.marketing.mobile.services
 
 import com.adobe.marketing.mobile.util.TestConstants
+import org.json.JSONException
+import org.json.JSONObject
 import java.net.MalformedURLException
 import java.net.URL
 
@@ -21,12 +23,12 @@ import java.net.URL
  */
 class TestableNetworkRequest @JvmOverloads constructor(
     url: String,
-    command: HttpMethod,
-    connectPayload: ByteArray? = null,
-    requestProperty: Map<String, String?>? = null,
+    method: HttpMethod,
+    body: ByteArray? = null,
+    headers: Map<String, String?>? = null,
     connectTimeout: Int = 5,
     readTimeout: Int = 5
-) : NetworkRequest(url, command, connectPayload, requestProperty, connectTimeout, readTimeout) {
+) : NetworkRequest(url, method, body, headers, connectTimeout, readTimeout) {
 
     private val queryParamMap: Map<String, String> = splitQueryParameters(url)
 
@@ -114,6 +116,21 @@ class TestableNetworkRequest @JvmOverloads constructor(
             listOf(url.protocol, url.host, url.path, this.method).hashCode()
         } catch (e: MalformedURLException) {
             listOf(this.url, this.method).hashCode()
+        }
+    }
+
+    /**
+     * Converts the body of the [TestableNetworkRequest] into a [JSONObject].
+     *
+     * @return A [JSONObject] representation of the body if it is valid JSON, otherwise null.
+     */
+    private fun getBodyJson(): JSONObject? {
+        val payload = body?.let { String(it) } ?: return null
+        return try {
+            JSONObject(payload)
+        } catch (e: JSONException) {
+            Log.warning(TestConstants.LOG_TAG, LOG_SOURCE, "Failed to create JSONObject from body with error: ${e.message}")
+            null
         }
     }
 }
