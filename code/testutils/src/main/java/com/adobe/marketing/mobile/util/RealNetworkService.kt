@@ -75,12 +75,13 @@ class RealNetworkService : NetworkServiceHelper() {
      * Note: To properly await network responses for a given request, make sure to set an expectation
      * using [setExpectationForNetworkRequest] then await the expectation using [assertAllNetworkRequestExpectations].
      *
-     * @param networkRequest The [NetworkRequest] for which the response should be returned.
+     * @param request The [NetworkRequest] for which the response should be returned.
      * @return The list of [HttpConnecting] responses for the given request or `null` if not found.
      * @see [setExpectationForNetworkRequest]
      * @see [assertAllNetworkRequestExpectations]
      */
     fun getResponsesFor(request: NetworkRequest): List<HttpConnecting?>? {
+        TestHelper.waitForThreads(1000)
         return TestableNetworkRequest.from(request)?.let {
             helper.getResponsesFor(it)
         }
