@@ -65,7 +65,7 @@ public class TestHelper {
 		sdkThreadPrefixes.add("pool"); // used for threads that execute the listeners code
 		sdkThreadPrefixes.add("ADB"); // module internal threads
 	}
-	
+
 	/**
 	 * {@code TestRule} which sets up the MobileCore for testing before each test execution, and
 	 * tearsdown the MobileCore after test execution.
@@ -193,8 +193,8 @@ public class TestHelper {
 	 * @param configuration the initial configuration update that needs to be applied
 	 */
 	public static void registerExtensions(
-			final List<Class<? extends Extension>> extensions,
-			@Nullable final Map<String, Object> configuration
+		final List<Class<? extends Extension>> extensions,
+		@Nullable final Map<String, Object> configuration
 	) {
 		if (configuration != null) {
 			MobileCore.updateConfiguration(configuration);
