@@ -207,6 +207,8 @@ class NetworkRequestHelper {
         waitForUnexpectedRequests: Boolean = true,
         timeoutMillis: Int = TestConstants.Defaults.WAIT_NETWORK_REQUEST_TIMEOUT_MS
     ) {
+        // Allow for some extra time for threads to finish before asserts
+        TestHelper.waitForThreads(2000)
         // Validate expected events
         for (expectedRequest in expectedNetworkRequests.keys) {
             awaitRequest(expectedRequest, timeoutMillis, false)

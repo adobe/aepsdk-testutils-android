@@ -81,7 +81,6 @@ class RealNetworkService : NetworkServiceHelper() {
      * @see [assertAllNetworkRequestExpectations]
      */
     fun getResponsesFor(request: NetworkRequest): List<HttpConnecting?>? {
-        TestHelper.waitForThreads(1000)
         return TestableNetworkRequest.from(request)?.let {
             helper.getResponsesFor(it)
         }
