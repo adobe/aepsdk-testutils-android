@@ -187,8 +187,9 @@ public class TestHelper {
 	}
 
 	/**
-	 * Applies the configuration provided, registers the extensions and then starts
-	 * core.
+	 * Applies the provided configuration, registers the provided extensions synchronously,
+	 * starts Core, and waits for the SDK thread processing to complete before returning.
+	 *
 	 * @param extensions the extensions that need to be registered
 	 * @param configuration the initial configuration update that needs to be applied
 	 */
