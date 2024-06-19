@@ -44,6 +44,7 @@ class TestableNetworkRequest @JvmOverloads constructor(
          * @return A new instance of [TestableNetworkRequest] if [request] is not null;
          *         otherwise, null.
          */
+        @JvmStatic
         fun from(request: NetworkRequest?): TestableNetworkRequest? {
             return if (request == null) {
                 null
