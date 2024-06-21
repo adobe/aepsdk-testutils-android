@@ -232,9 +232,12 @@ class MockNetworkService : Networking {
     }
 
     /**
-     * Immediately returns all sent network requests (if any) **without awaiting**.
+     * Returns all sent network requests (if any).
+     * If a timeout is specified (default is 2000 milliseconds), the function will wait for the specified time for the network requests to be recorded.
+     * If the timeout is set to 0, the function will immediately return the network requests without waiting.
      */
-    fun getAllNetworkRequests(): List<TestableNetworkRequest> {
+    fun getAllNetworkRequests(timeoutMillis: Int = TestConstants.Defaults.WAIT_NETWORK_REQUEST_TIMEOUT_MS): List<TestableNetworkRequest> {
+        TestHelper.waitForThreads(timeoutMillis)
         return helper.networkRequests
     }
 
