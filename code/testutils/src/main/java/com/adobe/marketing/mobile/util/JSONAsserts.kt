@@ -883,24 +883,25 @@ object JSONAsserts {
      *
      * @return A human-readable string representation of the key path.
      */
-    private fun keyPathAsString(keyPath: List<Any>): String {
-        var result = ""
+    private fun keyPathAsString(keyPath: List<Any>): String = buildString {
         for (item in keyPath) {
             when (item) {
                 is String -> {
-                    if (result.isNotEmpty()) {
-                        result += "."
+                    if (isNotEmpty()) {
+                        append(".")
                     }
-                    result += when {
-                        item.contains(".") -> item.replace(".", "\\.")
-                        item.isEmpty() -> "\"\""
-                        else -> item
-                    }
+                    append(
+                        when {
+                            item.contains(".") -> item.replace(".", "\\.")
+                            item.isEmpty() -> "\"\""
+                            else -> item
+                        }
+                    )
                 }
-                is Int -> result += "[$item]"
+
+                is Int -> append("[$item]")
             }
         }
-        return result
     }
 
     /**
